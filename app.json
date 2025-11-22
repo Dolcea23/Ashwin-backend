@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "AshwinWellnessFull",
+    "slug": "ashwinwellnessfull",
+    "version": "1.0.1",
+    "sdkVersion": "51.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.ashwinwellnessfull",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.anonymous.ashwinwellnessfull",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0e28a85b-30e0-41e2-83c4-3613208fd6c0"
+      }
+    }
+  }
+}

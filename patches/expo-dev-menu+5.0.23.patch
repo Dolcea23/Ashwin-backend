@@ -1,0 +1,120 @@
+diff --git a/node_modules/expo-dev-menu/.DS_Store b/node_modules/expo-dev-menu/.DS_Store
+new file mode 100644
+index 0000000..9494057
+Binary files /dev/null and b/node_modules/expo-dev-menu/.DS_Store differ
+diff --git a/node_modules/expo-dev-menu/ios/DevMenuViewController.swift b/node_modules/expo-dev-menu/ios/DevMenuViewController.swift
+index 5d58874..bb62cda 100644
+--- a/node_modules/expo-dev-menu/ios/DevMenuViewController.swift
++++ b/node_modules/expo-dev-menu/ios/DevMenuViewController.swift
+@@ -11,7 +11,6 @@ class DevMenuViewController: UIViewController {
+ 
+   init(manager: DevMenuManager) {
+     self.manager = manager
+-
+     super.init(nibName: nil, bundle: nil)
+     edgesForExtendedLayout = UIRectEdge.init(rawValue: 0)
+     extendedLayoutIncludesOpaqueBars = true
+@@ -22,15 +21,13 @@ class DevMenuViewController: UIViewController {
+   }
+ 
+   func updateProps() {
+-    if let reactRootView = reactRootView as? RCTRootView {
+-      reactRootView.appProperties = initialProps()
+-    } else if let reactRootView = reactRootView as? RCTSurfaceHostingProxyRootView {
+-      reactRootView.appProperties = initialProps()
++    if let rootView = reactRootView as? RCTRootView {
++      rootView.appProperties = initialProps()
++    } else if let surfaceView = reactRootView as? RCTSurfaceHostingProxyRootView {
++      surfaceView.appProperties = initialProps()
+     }
+   }
+ 
+-  // MARK: UIViewController
+-
+   override func viewDidLoad() {
+     super.viewDidLoad()
+     rebuildRootView()
+@@ -38,7 +35,7 @@ class DevMenuViewController: UIViewController {
+ 
+   override func viewWillLayoutSubviews() {
+     super.viewWillLayoutSubviews()
+-    reactRootView?.frame = CGRect(x: 0, y: 0, width: view.frame.size.width, height: view.frame.size.height)
++    reactRootView?.frame = view.bounds
+   }
+ 
+   override func viewWillAppear(_ animated: Bool) {
+@@ -46,49 +43,53 @@ class DevMenuViewController: UIViewController {
+     reactRootView?.becomeFirstResponder()
+   }
+ 
+-  override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+-    get {
+-      return UIInterfaceOrientationMask.all
+-    }
+-  }
+-
+   @available(iOS 12.0, *)
+   override var overrideUserInterfaceStyle: UIUserInterfaceStyle {
+-    get {
+-      return manager.userInterfaceStyle
+-    }
++    get { manager.userInterfaceStyle }
+     set {}
+   }
+ 
+-  // MARK: private
++  override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
++    return .all
++  }
++
++  // MARK: - Private
+ 
+   private func initialProps() -> [String: Any] {
+-    let isSimulator = TARGET_IPHONE_SIMULATOR > 0
++
++    // ✅ REMOVE old macro (TARGET_IPHONE_SIMULATOR)
++    #if targetEnvironment(simulator)
++      let isSimulator = true
++    #else
++      let isSimulator = false
++    #endif
+ 
+     return [
+       "showOnboardingView": manager.shouldShowOnboarding(),
+       "appInfo": manager.getAppInfo(),
+       "devSettings": manager.getDevSettings(),
+       "menuPreferences": DevMenuPreferences.serialize(),
+-      "uuid": UUID.init().uuidString,
++      "uuid": UUID().uuidString,
+       "isDevice": !isSimulator,
+       "registeredCallbacks": manager.registeredCallbacks.map { $0.name }
+     ]
+   }
+ 
+   private func rebuildRootView() {
+-    reactRootView = manager.appInstance.rootViewFactory.view(withModuleName: "main", initialProperties: initialProps())
+-    reactRootView?.frame = view.bounds
+-    reactRootView?.backgroundColor = UIColor { (traitCollection: UITraitCollection) -> UIColor in
+-      if traitCollection.userInterfaceStyle == .dark {
+-        return  UIColor(red: 22 / 255.0, green: 27 / 255.0, blue: 34 / 255.0, alpha: 1)
+-      }
++    reactRootView = manager.appInstance.rootViewFactory.view(
++      withModuleName: "main",
++      initialProperties: initialProps()
++    )
+ 
+-      return UIColor.clear
++    reactRootView?.frame = view.bounds
++    reactRootView?.backgroundColor = UIColor { tc in
++      tc.userInterfaceStyle == .dark
++        ? UIColor(red: 22/255, green: 27/255, blue: 34/255, alpha: 1)
++        : UIColor.clear
+     }
+ 
+-    if isViewLoaded, let reactRootView = reactRootView {
+-      view.addSubview(reactRootView)
++    if isViewLoaded, let root = reactRootView {
++      view.addSubview(root)
+       view.setNeedsLayout()
+     }
+   }

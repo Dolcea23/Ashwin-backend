@@ -1,0 +1,15 @@
+import fs from "fs";
+import path from "path";
+
+const patentPath = path.join(process.cwd(), "docs/patent/03_Algorithms.md");
+cat src/utils/logger.ts
+
+
+
+export function logPatentEntry(entry: string) {
+  const timestamp = new Date().toISOString();
+  const formatted = `\n### ${timestamp}\n${entry}\n`;
+  fs.appendFileSync(patentPath, formatted, "utf8");
+}
+
+

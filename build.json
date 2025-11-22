@@ -1,0 +1,23 @@
+{
+  "build_name": "Ashwin Wellness Ultimate Final",
+  "version": "1.0.1",
+  "date_locked": "2025-11-09T18:55:35-0500",
+  "author": "Jordan Angel",
+  "environment": {
+    "os": "macOS",
+    "frontend": "Expo + React Native (Hermes Enabled)",
+    "backend": "FastAPI Python Server",
+    "ios_project": "ashwinwellnessfull.xcodeproj"
+  },
+  "status": "Fully Functional (iOS Live Tested)",
+  "commit_tag": "FINAL_NOV_9_2025_STABLE",
+  "integrity": {
+    "verified_size": "908M",
+    "files_count": "   55028"
+  },
+  "restore_instructions": {
+    "1": "Unlock folder with: chmod -R +w AshwinWellness_Ultimate_Final_Nov_9_2025",
+    "2": "Run: npm install && cd ios && pod install",
+    "3": "Start: npx expo start"
+  }
+}

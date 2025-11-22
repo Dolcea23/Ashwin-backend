@@ -1,0 +1,32 @@
+import { logPatentEntry } from "../utils/logger";
+
+export interface SensorData {
+  eeg: number;
+  ecg: number;
+  temperature: number;
+}
+
+export function calculateAshwinIndex(data: SensorData): number {
+  const { eeg, ecg, temperature } = data;
+  const moodScore = eeg * 0.4 + ecg * 0.4 + temperature * 0.2;
+  logPatentEntry(`calculateAshwinIndex(): fused EEG/ECG/TEMP → MoodScore=${moodScore.toFixed(2)}`);
+  return moodScore;
+}
+cat src/api/AshwinIndex.ts
+
+
+nano src/utils/logger.ts
+
+import fs from "fs";
+import path from "path";
+
+const patentPath = path.join(process.cwd(), "docs/patent/03_Algorithms.md");
+
+export function logPatentEntry(entry: string) {
+  const timestamp = new Date().toISOString();
+  const formatted = `\n### ${timestamp}\n${entry}\n`;
+  fs.appendFileSync(patentPath, formatted, "utf8");
+}
+
+
+
