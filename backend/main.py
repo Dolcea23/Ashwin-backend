@@ -31,6 +31,14 @@ from typing import Optional, List, Dict, Any, Tuple
 from zoneinfo import ZoneInfo
 from collections import Counter
 
+import os
+
+@app.get("/debug/db")
+def debug_db():
+    return {
+        "database_url": os.getenv("DATABASE_URL")
+    }
+
 MAX_BOARD_ROWS = 10000
 
 # ---------- FastAPI / Pydantic ----------
