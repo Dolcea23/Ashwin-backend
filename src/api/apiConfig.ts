@@ -1,9 +1,17 @@
 // src/api/apiConfig.ts
-export const BASE_URL =
-  Platform.OS === "ios"
-    ? "http://127.0.0.1:8000" // when testing on iOS simulator
-    : "http://192.168.254.153:8000"; // when using your real device on Wi-Fi
+import Constants from "expo-constants";
 
-export const API_HEADERS = {
-  "Content-Type": "application/json",
-};
+const extra =
+  (Constants.expoConfig?.extra) ??
+  (Constants.easConfig as any)?.extra ??
+  (Constants.manifest as any)?.extra ??
+  (Constants.manifest2 as any)?.extra ??
+  {};
+
+const DEV_BACKEND = extra.BACKEND_URL as string | undefined;
+
+export const BASE_URL = __DEV__
+  ? (DEV_BACKEND || "https://ashwin-backend.onrender.com")
+  : "https://ashwin-backend.onrender.com";
+
+export const BACKEND = BASE_URL;

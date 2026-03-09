@@ -1,5 +1,8 @@
 // src/api/envSync.ts
-export const BASE_URL = "http://192.168.254.153:8000"; // your local IP
+
+// 🌐 Permanent backend domain (no more Cloudflare temp URLs)
+import { BASE_URL } from "./apiConfig";
+export { BASE_URL };
 
 export async function fetchEnvironmentReport(userId: number) {
   try {

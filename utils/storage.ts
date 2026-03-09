@@ -11,48 +11,61 @@ interface Contact {
   phone: string;
 }
 
-// --- Save daily score for Insights/Home ---
+// Keys (centralized for safety and reuse)
+const SESSIONS_KEY = "ASHWIN_SESSIONS";
+const CONTACT_KEY = "ASHWIN_EMERGENCY_CONTACT";
+
+// ------------------------------
+// Save Daily Score (Insights/Home)
+// ------------------------------
 export const saveSession = async (score: number, source: string) => {
   try {
     const date = new Date().toISOString().split("T")[0];
-    const newEntry: SessionData = { date, score, source };
 
-    const existing = await AsyncStorage.getItem("sessions");
-    const parsed = existing ? JSON.parse(existing) : [];
-    const updated = [...parsed, newEntry].slice(-30); // keep last 30 days
-    await AsyncStorage.setItem("sessions", JSON.stringify(updated));
+    const entry: SessionData = { date, score, source };
+
+    const existing = await AsyncStorage.getItem(SESSIONS_KEY);
+    const parsed: SessionData[] = existing ? JSON.parse(existing) : [];
+
+    // Keep last 30 days to reduce local storage bloat
+    const updated = [...parsed, entry].slice(-30);
+
+    await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.error("Error saving session:", e);
+    console.error("❌ Error saving session:", e);
   }
 };
 
-// --- Get full session history (for Insights graphs) ---
+// ------------------------------
+// Load History (Insights graphs)
+// ------------------------------
 export const getHistory = async (): Promise<SessionData[]> => {
   try {
-    const data = await AsyncStorage.getItem("sessions");
+    const data = await AsyncStorage.getItem(SESSIONS_KEY);
     return data ? JSON.parse(data) : [];
   } catch (e) {
-    console.error("Error loading history:", e);
+    console.error("❌ Error loading history:", e);
     return [];
   }
 };
 
-// --- Emergency Contact (for Live tab) ---
+// ------------------------------
+// Emergency Contact (Live Tab)
+// ------------------------------
 export const setEmergencyContact = async (contact: Contact) => {
   try {
-    await AsyncStorage.setItem("emergencyContact", JSON.stringify(contact));
+    await AsyncStorage.setItem(CONTACT_KEY, JSON.stringify(contact));
   } catch (e) {
-    console.error("Error saving contact:", e);
+    console.error("❌ Error saving emergency contact:", e);
   }
 };
 
 export const getEmergencyContact = async (): Promise<Contact | null> => {
   try {
-    const data = await AsyncStorage.getItem("emergencyContact");
+    const data = await AsyncStorage.getItem(CONTACT_KEY);
     return data ? JSON.parse(data) : null;
   } catch (e) {
-    console.error("Error loading contact:", e);
+    console.error("❌ Error loading emergency contact:", e);
     return null;
   }
 };
-

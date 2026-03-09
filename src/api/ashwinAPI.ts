@@ -1,4 +1,7 @@
-export const BASE_URL = "http://192.168.254.153:8000";
+// 🌐 Permanent Backend Domain
+import { BASE_URL } from "./apiConfig";
+export { BASE_URL };
+
 
 // 🧠 Send sensor data to backend
 export async function sendSensorData(
@@ -55,7 +58,7 @@ export async function fetchRewards(userId: number) {
   return res.json();
 }
 
-// 📄 Export user report (JSON placeholder)
+// 📄 Export user report
 export async function fetchExport(userId: number) {
   const res = await fetch(`${BASE_URL}/export/${userId}`);
   return res.json();

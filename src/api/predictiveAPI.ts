@@ -1,9 +1,9 @@
-// src/api/predictiveAPI.ts
-export const BASE_URL = "http://192.168.254.153:8000"; // your backend IP
+import { BASE_URL } from "./apiConfig";
+export { BASE_URL };
 
 export async function fetchPrediction(userId: number) {
   try {
-    const res = await fetch(`${BASE_URL}/predict/${userId}`);
+    const res = await fetch(`${BASE_URL}/predict/summary/${userId}`);
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {

@@ -5,6 +5,7 @@
     "version": "1.0.1",
     "sdkVersion": "51.0.0",
     "orientation": "portrait",
+    "scheme": "ashwinwellness",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -21,7 +22,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.ashwinwellnessfull",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSBluetoothAlwaysUsageDescription": "Ashwin Wellness needs Bluetooth to connect with your pillow hardware.",
+        "NSBluetoothPeripheralUsageDescription": "Bluetooth is required to receive live health readings from the pillow.",
+        "NSLocationWhenInUseUsageDescription": "Location is required for Bluetooth scanning on iOS.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Location is required for BLE background scanning.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "package": "com.anonymous.ashwinwellnessfull",
@@ -29,12 +40,21 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
-      }
+      },
+      "permissions": [
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
-    "extra": {
-      "eas": {
-        "projectId": "0e28a85b-30e0-41e2-83c4-3613208fd6c0"
-      }
-    }
+   "extra": {
+  "BACKEND_URL": "https://ashwin-backend.onrender.com",
+  "eas": {
+    "projectId": "0e28a85b-30e0-41e2-83c4-3613208fd6c0"
+  }
+},
+    "plugins": [
+      "react-native-ble-plx"
+    ]
   }
 }

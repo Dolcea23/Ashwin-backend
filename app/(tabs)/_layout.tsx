@@ -19,15 +19,27 @@ export default function TabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
-        name="dashboard"
+        name="live"
         options={{
-          title: "Dashboard",
+          title: "Live",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="pulse-outline" color={color} size={size} />
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="insights"
+        options={{
+          title: "Insights",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="stats-chart-outline" color={color} size={size} />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{
