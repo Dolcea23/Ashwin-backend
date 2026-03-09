@@ -4098,21 +4098,27 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 """
-    # Fetch users for dropdown
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
-    users = c.fetchall()
-    conn.close()
+   # Fetch users for dropdown
+conn = get_conn()
+c = conn.cursor()
+c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
+users = c.fetchall()
+conn.close()
 
-    user_options_html = ""
-    for uid, display_name in users:
-      selected_attr = "selected" if uid == selected else ""
+# Safety fallback if DB empty
+if not users:
+    users = [(1, "User 1")]
+
+user_options_html = ""
+
+for uid, display_name in users:
+    selected_attr = "selected" if uid == selected else ""
     user_options_html += (
         f"<option value='{uid}' {selected_attr}>"
         f"{display_name} (User {uid})"
         f"</option>"
     )
+
     html = f"""
                   <html>
                   <head>
