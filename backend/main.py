@@ -604,12 +604,13 @@ def require_partner_key(x_ashwin_key: Optional[str]):
 
 
 # ---------- Database helper (shared) ----------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "ashwin.db")
+import os
+import psycopg2
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_conn():
-    con = sqlite3.connect(DB_PATH, check_same_thread=False)
-    return con
+    return psycopg2.connect(DATABASE_URL)
 
 
 # ---------- FastAPI App (ONE TIME ONLY) ----------
@@ -640,24 +641,7 @@ def health():
 
 # ✅ Mount your routes (do this ONCE, after app is created)
 
-@app.get("/sessions")
-def get_sessions():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
 
-
-@app.get("/readings")
-def get_readings():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
 
 # IMPORTANT:
 # - Do NOT start the daily engine thread inside FastAPI when using uvicorn --reload
