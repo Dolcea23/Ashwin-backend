@@ -648,7 +648,7 @@ templates = Jinja2Templates(directory="templates")
 def hello(request: Request):
     return templates.TemplateResponse("hello.html", {"request": request})
 
-# Health endpoint (optional but recommended)
+# Health endpoint
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -665,7 +665,6 @@ def debug_sessions():
     rows = c.fetchall()
     conn.close()
     return rows
-
 
 @app.get("/readings")
 def debug_readings():
@@ -696,12 +695,9 @@ def debug_readings():
 def root():
     return RedirectResponse(url="/board?user=1&range=24h")
 
-
-
 @app.get("/dashboard")
 def dashboard(user: int = Query(1, ge=1)):
     return RedirectResponse(url=f"/report/{user}")
-
 
 def _day_window_et(day_yyyy_mm_dd: str):
     """Returns [start_et, end_et) for the given ET day string."""
