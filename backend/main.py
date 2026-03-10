@@ -5289,3 +5289,25 @@ def backup_full_project():
             print("⚠️ Backup failed:", e)
 
         time.sleep(86400)  # 24 hours
+# =====================================
+# DATABASE DEBUG ENDPOINTS (BOTTOM)
+# =====================================
+
+@app.get("/debug/sessions")
+def debug_sessions():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+@app.get("/debug/readings")
+def debug_readings():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
