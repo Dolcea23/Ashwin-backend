@@ -646,7 +646,6 @@ templates = Jinja2Templates(directory="templates")
 # Simple test page (optional)
 @app.get("/hello", response_class=HTMLResponse)
 def hello(request: Request):
-    # Make sure templates/hello.html exists
     return templates.TemplateResponse("hello.html", {"request": request})
 
 # Health endpoint (optional but recommended)
@@ -654,8 +653,29 @@ def hello(request: Request):
 def health():
     return {"ok": True}
 
-# ✅ Mount your routes (do this ONCE, after app is created)
+# -----------------------------
+# DEBUG DATABASE ENDPOINTS
+# -----------------------------
 
+@app.get("/sessions")
+def debug_sessions():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+@app.get("/readings")
+def debug_readings():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+# ✅ Mount your routes (do this ONCE, after app is created)
 
 
 # IMPORTANT:
