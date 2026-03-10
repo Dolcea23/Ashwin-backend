@@ -653,27 +653,7 @@ def hello(request: Request):
 def health():
     return {"ok": True}
 
-# -----------------------------
-# DEBUG DATABASE ENDPOINTS
-# -----------------------------
 
-@app.get("/sessions")
-def debug_sessions():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-@app.get("/readings")
-def debug_readings():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
 # ✅ Mount your routes (do this ONCE, after app is created)
 
 
@@ -5289,9 +5269,9 @@ def backup_full_project():
             print("⚠️ Backup failed:", e)
 
         time.sleep(86400)  # 24 hours
-# =====================================
-# DATABASE DEBUG ENDPOINTS (BOTTOM)
-# =====================================
+# ==============================
+# DEBUG DATABASE ENDPOINTS
+# ==============================
 
 @app.get("/debug/sessions")
 def debug_sessions():
