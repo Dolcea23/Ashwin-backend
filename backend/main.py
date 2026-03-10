@@ -640,7 +640,24 @@ def health():
 
 # ✅ Mount your routes (do this ONCE, after app is created)
 
+@app.get("/sessions")
+def get_sessions():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
+
+@app.get("/readings")
+def get_readings():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
 # IMPORTANT:
 # - Do NOT start the daily engine thread inside FastAPI when using uvicorn --reload
