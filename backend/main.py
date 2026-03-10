@@ -1246,11 +1246,13 @@ def signup(p: UserSignup):
         "INSERT INTO users(name,pin,display_name,created_at) VALUES (?,?,?,?)",
         (p.name, p.pin, disp, now),
     )
+
     conn.commit()
     uid = c.lastrowid
     conn.close()
 
     session = start_autosession(uid, "Auto Session (Signup)")
+
     return {
         "id": uid,
         "name": disp,
@@ -1263,10 +1265,12 @@ def signup(p: UserSignup):
 def login(p: UserLogin):
     conn = get_conn()
     c = conn.cursor()
+
     c.execute(
         "SELECT id, display_name FROM users WHERE name=? AND pin=?",
         (p.name, p.pin),
     )
+
     row = c.fetchone()
     conn.close()
 
@@ -1275,6 +1279,7 @@ def login(p: UserLogin):
 
     uid, disp = row
     session = start_autosession(uid, "Auto Session (Login)")
+
     return {
         "id": uid,
         "name": disp,
@@ -1283,18 +1288,20 @@ def login(p: UserLogin):
     }
 
 
-
 @app.get("/users")
 def list_users():
     conn = get_conn()
     c = conn.cursor()
+
     c.execute(
         "SELECT id,name,display_name,created_at FROM users ORDER BY id ASC"
     )
+
     rows = c.fetchall()
     conn.close()
 
     out = []
+
     for uid, name, disp, ts in rows:
         out.append(
             {
@@ -1305,7 +1312,10 @@ def list_users():
                 "created_at_et": parse_iso_to_et(ts),
             }
         )
+
     return out
+
+
 # -------------------------------------------------
 # ---------- DEVICE REGISTRATION ----------
 # -------------------------------------------------
@@ -1316,18 +1326,20 @@ def register_device(device_id: str, user_id: int):
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO devices (device_id, user_id)
         VALUES (?, ?)
         ON CONFLICT(device_id)
         DO UPDATE SET user_id = excluded.user_id
-    """, (device_id, user_id))
+        """,
+        (device_id, user_id),
+    )
 
     conn.commit()
     conn.close()
 
     return {"status": "device linked"}
-
 # -------------------------------------------------
 # ---------- SENSOR INGEST ----------
 # -------------------------------------------------
