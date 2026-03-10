@@ -3708,12 +3708,12 @@ def board(req: Request):
     # ⭐ ALWAYS LOAD DASHBOARD
     q_user = req.query_params.get("user")
 
-if q_user:
-    selected = int(q_user)
+    if q_user:
+      selected = int(q_user)
 
-else:
+    else:
     # Automatically select the user with the latest reading
-    row = c.execute(
+      row = c.execute(
         """
         SELECT user_id
         FROM readings
@@ -3741,7 +3741,7 @@ else:
     rows = get_window_rows(selected, range_key, start, end)
 
     if not rows:
-        rows = get_last_rows(selected, limit=200)
+      rows = get_last_rows(selected, limit=200)
 
     # ⭐ Smart fallback: if window empty, load last session
     if not rows and range_key != "session":
@@ -4769,8 +4769,8 @@ for uid, display_name in users:
               </html>
               """
     if not users:
-              users = [(1, "User 1")]
-    return HTMLResponse(content=html)
+      users = [(1, "User 1")]
+      return HTMLResponse(content=html)
 
 @app.get("/api/correlation/{uid}")
 def api_correlation(
