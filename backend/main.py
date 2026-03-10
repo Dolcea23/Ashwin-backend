@@ -1322,16 +1322,15 @@ def list_users():
 
 @app.post("/device/register")
 def register_device(device_id: str, user_id: int):
-
     conn = get_conn()
     c = conn.cursor()
 
     c.execute(
         """
         INSERT INTO devices (device_id, user_id)
-        VALUES (?, ?)
+        VALUES (%s, %s)
         ON CONFLICT(device_id)
-        DO UPDATE SET user_id = excluded.user_id
+        DO UPDATE SET user_id = EXCLUDED.user_id
         """,
         (device_id, user_id),
     )
@@ -4181,9 +4180,11 @@ document.addEventListener("DOMContentLoaded", function () {
     users = c.fetchall()
     conn.close()
 
-# Safety fallback if DB empty
-if not users:
-    users = [(1, "User 1")]
+    # Safety fallback if DB empty
+    if not users:
+        users = [(1, "User 1")]
+
+    user_options_html = ""
 
 user_options_html = ""
 
@@ -4779,10 +4780,12 @@ for uid, display_name in users:
 
               </body>
               </html>
-              """
+                 """
+    
     if not users:
-      users = [(1, "User 1")]
-      return HTMLResponse(content=html)
+        users = [(1, "User 1")]
+
+    return HTMLResponse(content=html)
 
 @app.get("/api/correlation/{uid}")
 def api_correlation(
