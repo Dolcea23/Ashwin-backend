@@ -612,7 +612,22 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
+def init_db():
+    conn = get_conn()
+    c = conn.cursor()
 
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS devices (
+        id SERIAL PRIMARY KEY,
+        device_id TEXT UNIQUE,
+        user_id INTEGER
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
 # ---------- FastAPI App (ONE TIME ONLY) ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
 
