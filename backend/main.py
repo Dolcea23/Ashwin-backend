@@ -612,22 +612,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
-def init_db():
-    conn = get_conn()
-    c = conn.cursor()
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS devices (
-        id SERIAL PRIMARY KEY,
-        device_id TEXT UNIQUE,
-        user_id INTEGER
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-init_db()
 # ---------- FastAPI App (ONE TIME ONLY) ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
 
@@ -653,8 +638,30 @@ def hello(request: Request):
 def health():
     return {"ok": True}
 
+# -----------------------------
+# DEBUG DATABASE ENDPOINTS
+# -----------------------------
+
+@app.get("/sessions")
+def debug_sessions():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+@app.get("/readings")
+def debug_readings():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
 # ✅ Mount your routes (do this ONCE, after app is created)
+
 
 
 # IMPORTANT:
@@ -678,6 +685,7 @@ def root():
 @app.get("/dashboard")
 def dashboard(user: int = Query(1, ge=1)):
     return RedirectResponse(url=f"/report/{user}")
+
 
 def _day_window_et(day_yyyy_mm_dd: str):
     """Returns [start_et, end_et) for the given ET day string."""
@@ -894,17 +902,6 @@ def init_db():
 
         # helpful index for time queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)")
-
-        # helpful index for time queries
-    c.execute("CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)")
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS devices(
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          device_id TEXT UNIQUE,
-          user_id INTEGER
-        )
-        """)
 
     conn.commit()
     conn.close()
@@ -1286,6 +1283,7 @@ def login(p: UserLogin):
     }
 
 
+
 @app.get("/users")
 def list_users():
     conn = get_conn()
@@ -1308,31 +1306,36 @@ def list_users():
             }
         )
     return out
+# -------------------------------------------------
+# ---------- DEVICE REGISTRATION ----------
+# -------------------------------------------------
 
+@app.post("/device/register")
+def register_device(device_id: str, user_id: int):
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("""
+        INSERT INTO devices (device_id, user_id)
+        VALUES (?, ?)
+        ON CONFLICT(device_id)
+        DO UPDATE SET user_id = excluded.user_id
+    """, (device_id, user_id))
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "device linked"}
 
 # -------------------------------------------------
-# ---------- SENSOR INGEST (SQLITE) ----------
+# ---------- SENSOR INGEST ----------
 # -------------------------------------------------
 
 from datetime import datetime, timezone
 
 @app.post("/ingest/raw")
 def ingest_raw(d: SensorReadingIn):
-    """
-    Ingest a raw sensor reading into SQLite.
-
-    Session selection priority:
-    (a) client-provided session_id (only if active + belongs to user)
-    (b) most recent active session (end_time IS NULL)
-    (c) start a new autosession
-    """
-
-    def to_sqlite_dt(dt: datetime) -> str:
-        """
-        SQLite-friendly timestamp string: 'YYYY-MM-DD HH:MM:SS'
-        Treats dt as UTC-naive. (Store UTC in DB; convert on read if needed.)
-        """
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
 
     conn = get_conn()
     c = conn.cursor()
@@ -1340,72 +1343,86 @@ def ingest_raw(d: SensorReadingIn):
     sid = None
 
     # ----------------------------
-    # 1) Choose a session id
+    # 0) Resolve user from device
+    # ----------------------------
+    c.execute("SELECT user_id FROM devices WHERE device_id = ?", (d.device_id,))
+    row = c.fetchone()
+
+    if not row:
+        conn.close()
+        return {"error": "device not registered"}
+
+    user_id = int(row[0])
+
+    # ----------------------------
+    # 1) Choose session id
     # ----------------------------
 
-    # (a) Validate provided session_id is active and belongs to user
     if getattr(d, "session_id", None):
         try:
-            c.execute(
-                """
+            c.execute("""
                 SELECT id
                 FROM sessions
                 WHERE id=? AND user_id=? AND end_time IS NULL
                 LIMIT 1
-                """,
-                (int(d.session_id), int(d.user_id)),
-            )
+            """, (int(d.session_id), user_id))
             row = c.fetchone()
             if row:
                 sid = int(row[0])
-        except Exception:
+        except:
             sid = None
 
-    # (b) Use latest active session if none selected
+    # (b) latest active session
     if not sid:
-        c.execute(
-            """
+        c.execute("""
             SELECT id
             FROM sessions
             WHERE user_id=? AND end_time IS NULL
             ORDER BY id DESC
             LIMIT 1
-            """,
-            (int(d.user_id),),
-        )
+        """, (user_id,))
         row = c.fetchone()
+
         if row:
             sid = int(row[0])
 
-    # (c) Start autosession if still none
+    # (c) start autosession
     if not sid:
-        sid = int(start_autosession(int(d.user_id))["session_id"])
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+        c.execute("""
+            INSERT INTO sessions(user_id, label, start_time)
+            VALUES (?, 'autosession', ?)
+        """, (user_id, now))
+
+        sid = c.lastrowid
 
     # ----------------------------
     # 2) Timestamp normalization
     # ----------------------------
+
     ts = getattr(d, "timestamp", None)
 
     if not ts:
-        ts = to_sqlite_dt(datetime.utcnow())
+        ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
     else:
         try:
             cleaned = ts.replace("Z", "+00:00")
             dt = datetime.fromisoformat(cleaned)
 
             if dt.tzinfo is not None:
-                dt_utc = dt.astimezone(timezone.utc).replace(tzinfo=None)
-            else:
-                dt_utc = dt
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
 
-            ts = to_sqlite_dt(dt_utc)
+            ts = dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        except Exception:
-            pass
+        except:
+            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
     # ----------------------------
     # 3) Filter idle frames
     # ----------------------------
+
     eeg_val = d.eeg if d.eeg is not None else 0.0
     ecg_val = d.ecg if d.ecg is not None else 0.0
 
@@ -1416,36 +1433,53 @@ def ingest_raw(d: SensorReadingIn):
     # ----------------------------
     # 4) Insert reading
     # ----------------------------
-    c.execute(
-        """
-        INSERT INTO readings(user_id, session_id, eeg, ecg, temperature, light, noise, timestamp)
+
+    c.execute("""
+        INSERT INTO readings(
+            user_id,
+            session_id,
+            eeg,
+            ecg,
+            temperature,
+            light,
+            noise,
+            timestamp
+        )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            int(d.user_id),
-            int(sid),
-            d.eeg,
-            d.ecg,
-            d.temperature,
-            d.light,
-            d.noise,
-            ts,
-        ),
-    )
+    """, (
+        user_id,
+        sid,
+        d.eeg,
+        d.ecg,
+        d.temperature,
+        d.light,
+        d.noise,
+        ts
+    ))
 
     # ----------------------------
     # 5) Event detection
     # ----------------------------
+
     ev = detect_unresponsive(d)
 
     if ev:
-        c.execute(
-            """
-            INSERT INTO life_events(user_id, event_type, confidence, note, created_at)
+        c.execute("""
+            INSERT INTO life_events(
+                user_id,
+                event_type,
+                confidence,
+                note,
+                created_at
+            )
             VALUES (?, ?, ?, ?, ?)
-            """,
-            (int(d.user_id), ev["event_type"], ev["confidence"], ev["note"], ts),
-        )
+        """, (
+            user_id,
+            ev["event_type"],
+            ev["confidence"],
+            ev["note"],
+            ts
+        ))
 
     conn.commit()
     conn.close()
@@ -1453,7 +1487,7 @@ def ingest_raw(d: SensorReadingIn):
     return {
         "status": "ok",
         "session_id": sid,
-        "timestamp": ts,
+        "timestamp": ts
     }
 
 # -------------------------------------------------
@@ -3664,7 +3698,6 @@ def get_window_events(user: int, range_key: str, start: str | None = None, end: 
 
 @app.get("/board", response_class=HTMLResponse)
 def board(req: Request):
-
     conn = get_conn()
     c = conn.cursor()
 
@@ -3672,8 +3705,8 @@ def board(req: Request):
     c.execute("SELECT id, COALESCE(display_name, name) FROM users")
     users = c.fetchall()
 
-    # ⭐ ALWAYS LOAD DASHBOARD - even if NO users exist
-q_user = req.query_params.get("user")
+    # ⭐ ALWAYS LOAD DASHBOARD
+    q_user = req.query_params.get("user")
 
 if q_user:
     selected = int(q_user)
@@ -4129,12 +4162,12 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 """
-   # Fetch users for dropdown
-conn = get_conn()
-c = conn.cursor()
-c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
-users = c.fetchall()
-conn.close()
+    # Fetch users for dropdown
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
+    users = c.fetchall()
+    conn.close()
 
 # Safety fallback if DB empty
 if not users:
@@ -5280,7 +5313,3 @@ def backup_full_project():
             print("⚠️ Backup failed:", e)
 
         time.sleep(86400)  # 24 hours
-# ==============================
-# DEBUG DATABASE ENDPOINTS
-# ==============================
-
