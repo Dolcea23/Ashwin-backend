@@ -895,6 +895,17 @@ def init_db():
         # helpful index for time queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)")
 
+        # helpful index for time queries
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)")
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS devices(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          device_id TEXT UNIQUE,
+          user_id INTEGER
+        )
+        """)
+
     conn.commit()
     conn.close()
 
@@ -5273,21 +5284,3 @@ def backup_full_project():
 # DEBUG DATABASE ENDPOINTS
 # ==============================
 
-@app.get("/debug/sessions")
-def debug_sessions():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-
-@app.get("/debug/readings")
-def debug_readings():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
