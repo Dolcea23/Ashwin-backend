@@ -919,7 +919,8 @@ class UserLogin(BaseModel):
     pin: str
 
 class SensorReadingIn(BaseModel):
-    user_id: int
+    device_id: str
+    user_id: Optional[int] = None
     session_id: Optional[int] = None
     eeg: Optional[float] = None
     ecg: Optional[float] = None
@@ -1320,20 +1321,22 @@ def list_users():
 # ---------- DEVICE REGISTRATION ----------
 # -------------------------------------------------
 
+# -------------------------------------------------
+# DEVICE REGISTRATION
+# -------------------------------------------------
+
 @app.post("/device/register")
 def register_device(device_id: str, user_id: int):
+
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute(
-        """
+    c.execute("""
         INSERT INTO devices (device_id, user_id)
-        VALUES (%s, %s)
+        VALUES (?, ?)
         ON CONFLICT(device_id)
-        DO UPDATE SET user_id = EXCLUDED.user_id
-        """,
-        (device_id, user_id),
-    )
+        DO UPDATE SET user_id = excluded.user_id
+    """, (device_id, user_id))
 
     conn.commit()
     conn.close()
@@ -1344,7 +1347,6 @@ def register_device(device_id: str, user_id: int):
 # -------------------------------------------------
 
 from datetime import datetime, timezone
-
 @app.post("/ingest/raw")
 def ingest_raw(d: SensorReadingIn):
 
@@ -1356,7 +1358,10 @@ def ingest_raw(d: SensorReadingIn):
     # ----------------------------
     # 0) Resolve user from device
     # ----------------------------
-    c.execute("SELECT user_id FROM devices WHERE device_id = ?", (d.device_id,))
+    c.execute(
+        "SELECT user_id FROM devices WHERE device_id = ?",
+        (d.device_id,)
+    )
     row = c.fetchone()
 
     if not row:
@@ -4180,612 +4185,612 @@ document.addEventListener("DOMContentLoaded", function () {
     users = c.fetchall()
     conn.close()
 
-    # Safety fallback if DB empty
+      # Safety fallback if DB empty
     if not users:
-        users = [(1, "User 1")]
+          users = [(1, "User 1")]
 
-    user_options_html = ""
+user_options_html = ""
 
 user_options_html = ""
 
 for uid, display_name in users:
-    selected_attr = "selected" if uid == selected else ""
-    user_options_html += (
-        f"<option value='{uid}' {selected_attr}>"
-        f"{display_name} (User {uid})"
-        f"</option>"
-    )
+      selected_attr = "selected" if uid == selected else ""
+      user_options_html += (
+          f"<option value='{uid}' {selected_attr}>"
+          f"{display_name} (User {uid})"
+          f"</option>"
+      )
 
-    html = f"""
-                  <html>
-                  <head>
-                    <title>Ashwin Wellness Command Center (Harmony Science)</title>
-                    ...
+      html = f"""
+                    <html>
+                    <head>
+                      <title>Ashwin Wellness Command Center (Harmony Science)</title>
+                      ...
 
-                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-                    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-                    <style>
-                      body {{
-                        background-color:#f5f7fa;
-                        font-family:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont;
-                        color:#212529;
-                      }}
-                      .kpi-card {{
-                        border-radius:15px;
-                        box-shadow:0 3px 8px rgba(0,0,0,0.05);
-                      }}
-                      .tab-card {{
-                        border-radius:15px;
-                        box-shadow:0 3px 8px rgba(0,0,0,0.05);
-                        background:#fff;
-                      }}
-                      .nav-pills .nav-link.active {{
-                        background-color:#0D6EFD;
-                      }}
-                      .chart-wrap {{
-                height: 360px;
-              }}
-              .chart-wrap canvas {{
-                width: 100% !important;
-                height: 100% !important;
-              }}
+                      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+                      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                      <style>
+                        body {{
+                          background-color:#f5f7fa;
+                          font-family:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont;
+                          color:#212529;
+                        }}
+                        .kpi-card {{
+                          border-radius:15px;
+                          box-shadow:0 3px 8px rgba(0,0,0,0.05);
+                        }}
+                        .tab-card {{
+                          border-radius:15px;
+                          box-shadow:0 3px 8px rgba(0,0,0,0.05);
+                          background:#fff;
+                        }}
+                        .nav-pills .nav-link.active {{
+                          background-color:#0D6EFD;
+                        }}
+                        .chart-wrap {{
+                  height: 360px;
+                }}
+                .chart-wrap canvas {{
+                  width: 100% !important;
+                  height: 100% !important;
+                }}
 
-                    </style>
-                  </head>
-                  <body class="p-4">
-                    <div class="container-fluid">
-                      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-                        <div>
-                          <h1 class="mb-1">🧠 Ashwin Wellness Command Center <small class="text-muted">(Harmony Science)</small></h1>
-                          <p class="text-muted mb-1">
-                            Contactless Harmony Science - real-time bioelectric field patterns converted into a single Harmony Index
-                            and supporting wellness metrics.
-                          </p>
-                          <p class="text-muted mb-0">
-                Viewing: <strong id="viewingUser">{uname} (User {selected})</strong>
-                <span class="ms-2">• Last reading: <strong id="lastReading">{last_ts_et}</strong></span>
-              </p>
+                      </style>
+                    </head>
+                    <body class="p-4">
+                      <div class="container-fluid">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                          <div>
+                            <h1 class="mb-1">🧠 Ashwin Wellness Command Center <small class="text-muted">(Harmony Science)</small></h1>
+                            <p class="text-muted mb-1">
+                              Contactless Harmony Science - real-time bioelectric field patterns converted into a single Harmony Index
+                              and supporting wellness metrics.
+                            </p>
+                            <p class="text-muted mb-0">
+                  Viewing: <strong id="viewingUser">{uname} (User {selected})</strong>
+                  <span class="ms-2">• Last reading: <strong id="lastReading">{last_ts_et}</strong></span>
+                </p>
 
+                          </div>
+                          <div class="text-end mt-3 mt-md-0">
+                            <a href="/export/full/{selected}" class="btn btn-outline-secondary btn-sm mb-1">📄 Download Full CSV</a><br/>
+                            <a href="/export/pdf/{selected}" class="btn btn-outline-danger btn-sm">🧾 Download Full PDF Report</a>
+                          </div>
                         </div>
-                        <div class="text-end mt-3 mt-md-0">
-                          <a href="/export/full/{selected}" class="btn btn-outline-secondary btn-sm mb-1">📄 Download Full CSV</a><br/>
-                          <a href="/export/pdf/{selected}" class="btn btn-outline-danger btn-sm">🧾 Download Full PDF Report</a>
-                        </div>
-                      </div>
 
-                      <!-- User + Time Range selector -->
-                    <form id="filtersForm" class="row g-2 mb-3" onsubmit="return false;">
-                <div class="col-md-4">
-                  <label class="form-label fw-semibold">Switch user</label>
-                  <select id="userSelect" name="user" class="form-select">
-                {user_options_html}
-                </select>
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label fw-semibold">Time range</label>
-                  <select id="rangeSelect" name="range" class="form-select">
-                    {range_select_html}
+                        <!-- User + Time Range selector -->
+                      <form id="filtersForm" class="row g-2 mb-3" onsubmit="return false;">
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">Switch user</label>
+                    <select id="userSelect" name="user" class="form-select">
+                  {user_options_html}
                   </select>
-                </div>
-
-                <div class="col-md-2">
-                  <label class="form-label fw-semibold">Start date</label>
-                  <input id="startDate" name="start" type="date" class="form-control" />
-                </div>
-
-                <div class="col-md-2">
-                  <label class="form-label fw-semibold">End date</label>
-                  <input id="endDate" name="end" type="date" class="form-control" />
-                </div>
-
-                <div class="col-md-2 d-flex align-items-end">
-                  <button id="applyDates" class="btn btn-primary w-100">Apply</button>
-                </div>
-
-                <div class="col-md-2 d-flex align-items-end">
-                  <button id="clearDates" class="btn btn-outline-secondary w-100">Clear</button>
-                </div>
-              </form>
-
-
-                      <!-- KPI row -->
-                  <div class="row text-center mb-4">
-                  <div class="col-6 col-md-4 col-lg-2 mb-3">
-                  <div class="card kpi-card p-3 h-100">
-                    <h6 class="text-muted mb-1">Current Harmony</h6>
-                    <h2 class="mb-0"><span id="kpiAvgHarmony">{avg_harmony}</span></h2>
-                    <small class="text-muted">Composite index (0-100 style)</small>
-                  </div>
-                    </div>
-
-                  <div class="col-6 col-md-4 col-lg-2 mb-3">
-                  <div class="card kpi-card p-3 h-100">
-                  <h6 class="text-muted mb-1">Avg Drift</h6>
-                  <h2 class="mb-0"><span id="kpiDrift">{avg_drift}</span></h2>
-                  <small class="text-muted">Avg step-to-step change</small>
-                  </div>
                   </div>
 
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">Time range</label>
+                    <select id="rangeSelect" name="range" class="form-select">
+                      {range_select_html}
+                    </select>
+                  </div>
+
+                  <div class="col-md-2">
+                    <label class="form-label fw-semibold">Start date</label>
+                    <input id="startDate" name="start" type="date" class="form-control" />
+                  </div>
+
+                  <div class="col-md-2">
+                    <label class="form-label fw-semibold">End date</label>
+                    <input id="endDate" name="end" type="date" class="form-control" />
+                  </div>
+
+                  <div class="col-md-2 d-flex align-items-end">
+                    <button id="applyDates" class="btn btn-primary w-100">Apply</button>
+                  </div>
+
+                  <div class="col-md-2 d-flex align-items-end">
+                    <button id="clearDates" class="btn btn-outline-secondary w-100">Clear</button>
+                  </div>
+                </form>
+
+
+                        <!-- KPI row -->
+                    <div class="row text-center mb-4">
                     <div class="col-6 col-md-4 col-lg-2 mb-3">
-                  <div class="card kpi-card p-3 h-100">
-                    <h6 class="text-muted mb-1">Improvement</h6>
-                    <h2 class="mb-0"><span id="kpiImprovement">{improvement}%</span></h2>
-                    <small class="text-muted">Change from early to late readings in this window</small>
-                  </div>
+                    <div class="card kpi-card p-3 h-100">
+                      <h6 class="text-muted mb-1">Current Harmony</h6>
+                      <h2 class="mb-0"><span id="kpiAvgHarmony">{avg_harmony}</span></h2>
+                      <small class="text-muted">Composite index (0-100 style)</small>
                     </div>
-
-                    <div class="col-6 col-md-4 col-lg-2 mb-3">
-                  <div class="card kpi-card p-3 h-100">
-                    <h6 class="text-muted mb-1">Stability Gain</h6>
-                    <h2 class="mb-0"><span id="kpiStability">{stability}%</span></h2>
-                    <small class="text-muted">Less volatility = calmer Harmony patterns</small>
-                  </div>
-                    </div>
-
-                    <div class="col-6 col-md-4 col-lg-2 mb-3">
-                  <div class="card kpi-card p-3 h-100">
-                    <h6 class="text-muted mb-1">Harmony Resilience Index</h6>
-                    <h2 class="mb-0"><span id="kpiHri">{hri}</span></h2>
-                    <small class="text-muted">Blends improvement + stability</small>
-                  </div>
-                    </div>
-
-                    {zone_html}
-                  </div>
-
-                  <!-- LIVE STRIP + TAG FEED -->
-                  <div class="row mb-4">
-                    <div class="col-lg-8 mb-3">
-                  <div class="card p-3 h-100">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <div>
-                        <h5 class="mb-0">Live Pattern Strip</h5>
-                        <small class="text-muted">Scrolling signal view + real-time pattern flags (non-medical)</small>
                       </div>
-                      <div class="text-end">
-                        <small class="text-muted">Source:</small>
-                        <span class="badge bg-secondary">/api/recent</span>
+
+                    <div class="col-6 col-md-4 col-lg-2 mb-3">
+                    <div class="card kpi-card p-3 h-100">
+                    <h6 class="text-muted mb-1">Avg Drift</h6>
+                    <h2 class="mb-0"><span id="kpiDrift">{avg_drift}</span></h2>
+                    <small class="text-muted">Avg step-to-step change</small>
+                    </div>
+                    </div>
+
+                      <div class="col-6 col-md-4 col-lg-2 mb-3">
+                    <div class="card kpi-card p-3 h-100">
+                      <h6 class="text-muted mb-1">Improvement</h6>
+                      <h2 class="mb-0"><span id="kpiImprovement">{improvement}%</span></h2>
+                      <small class="text-muted">Change from early to late readings in this window</small>
+                    </div>
                       </div>
+
+                      <div class="col-6 col-md-4 col-lg-2 mb-3">
+                    <div class="card kpi-card p-3 h-100">
+                      <h6 class="text-muted mb-1">Stability Gain</h6>
+                      <h2 class="mb-0"><span id="kpiStability">{stability}%</span></h2>
+                      <small class="text-muted">Less volatility = calmer Harmony patterns</small>
+                    </div>
+                      </div>
+
+                      <div class="col-6 col-md-4 col-lg-2 mb-3">
+                    <div class="card kpi-card p-3 h-100">
+                      <h6 class="text-muted mb-1">Harmony Resilience Index</h6>
+                      <h2 class="mb-0"><span id="kpiHri">{hri}</span></h2>
+                      <small class="text-muted">Blends improvement + stability</small>
+                    </div>
+                      </div>
+
+                      {zone_html}
                     </div>
 
-                    <div class="mt-3">
-                      <canvas id="liveStrip" height="140" style="width:100%; border-radius:12px; background:#0b0f14;"></canvas>
-                    </div>
-
-                    <div class="mt-2">
-                      <small class="text-muted">
-                        This strip visualizes recent Harmony (scaled). Flags are pattern tags; zones are inferred field regions (not anatomy).
-                      </small>
-                    </div>
-                  </div>
-                    </div>
-
-                    <div class="col-lg-4 mb-3">
-                  <div class="card p-3 h-100">
-                    <h5 class="mb-2">Latest Tags</h5>
-                    <small class="text-muted d-block mb-2">Pattern + zone feed (last 40)</small>
-                    <div id="tagFeed" style="max-height: 260px; overflow:auto;"></div>
-
-              <hr />
-              <h6 class="mb-2">Your Tags</h6>
-              <div id="userTagList" style="max-height: 220px; overflow:auto;"></div>
-
-              <hr />
-              <small class="text-muted">
-                Disclaimer: research/wellness visualization only. Not diagnostic.
-              </small>
-
-                  </div>
-                    </div>
-                  </div>
-
-                  <!-- ====== RADAR PANEL (KEEP ONE COPY ONLY) ====== -->
-                  <div class="row mb-4" id="radarPanel" data-user="{selected}">
-                    <div class="col-lg-8 mb-3">
-                  <div class="card p-3 h-100">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <h5 class="mb-0"> Body Radar</h5>
-                      <div id="radarMeta" class="text-muted small"></div>
-                    </div>
-
-                    <div class="mt-3 d-flex justify-content-center">
-                      <canvas
-                        id="radarCanvas"
-                        width="520"
-                        height="520"
-                        style="width:100%; max-width:520px; border-radius:12px; background:#0b0f14;"
-                      ></canvas>
-                    </div>
-                    <div class="mt-2 small text-muted" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-                <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#0b7a2a;margin-right:6px;"></span>0–19</span>
-                <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#34c759;margin-right:6px;"></span>20–39</span>
-                <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ffd60a;margin-right:6px;"></span>40–59</span>
-                <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ff9f0a;margin-right:6px;"></span>60–79</span>
-                <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ff2d2d;margin-right:6px;"></span>80–100</span>
-                <span style="opacity:.8;">(Harmony)</span>
-              </div>
-
-                  </div>
-                    </div>
-
-                    <div class="col-lg-4 mb-3">
-                  <div class="card p-3 h-100">
-                    <h5 class="mb-2">Top Patterns</h5>
-                    <div id="radarPatterns"></div>
-                    <hr />
-                    <small class="text-muted">Non-diagnostic research/wellness visualization only.</small>
-                  </div>
-                    </div>
-                  </div>
-
-                      <!-- Tabs: Harmony first, supporting second, technical/critical third -->
-                      <ul class="nav nav-pills mb-3" id="harmonyTabs" role="tablist">
-                        <!-- Row 1: Core Harmony -->
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link active" id="summary-tab" data-bs-toggle="pill" data-bs-target="#summary-pane" type="button" role="tab">
-                            Harmony Summary
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="trend-tab" data-bs-toggle="pill" data-bs-target="#trend-pane" type="button" role="tab">
-                            Harmony Trend
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="proof-tab" data-bs-toggle="pill" data-bs-target="#proof-pane" type="button" role="tab">
-                            Proof of Harmony
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="ratios-tab" data-bs-toggle="pill" data-bs-target="#ratios-pane" type="button" role="tab">
-                            Ratios
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="corr-tab" data-bs-toggle="pill" data-bs-target="#corr-pane" type="button" role="tab">
-                            Correlation Map
-                          </button>
-                        </li>
-
-                        <!-- Row 2: Field-level supporting tabs -->
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="brain-tab" data-bs-toggle="pill" data-bs-target="#brain-pane" type="button" role="tab">
-                            Brain Field (EEG-like)
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="cardiac-tab" data-bs-toggle="pill" data-bs-target="#cardiac-pane" type="button" role="tab">
-                            Cardiac Field (ECG-like)
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="emotional-tab" data-bs-toggle="pill" data-bs-target="#emotional-pane" type="button" role="tab">
-                            Emotional / Autonomic
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="thermal-tab" data-bs-toggle="pill" data-bs-target="#thermal-pane" type="button" role="tab">
-                            Thermal Drift Field
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="env-tab" data-bs-toggle="pill" data-bs-target="#env-pane" type="button" role="tab">
-                            Environment Field
-                          </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="raw-tab" data-bs-toggle="pill" data-bs-target="#raw-pane" type="button" role="tab">
-                            Raw Field Trace
-                          </button>
-                        </li>
-
-                        <!-- Row 3: Critical Harmony Events -->
-                        <li class="nav-item" role="presentation">
-                          <button class="nav-link" id="critical-tab" data-bs-toggle="pill" data-bs-target="#critical-pane" type="button" role="tab">
-                            Critical Harmony Events
-                          </button>
-                        </li>
-                      </ul>
-
-                      <div class="tab-content" id="harmonyTabsContent">
-                        <!-- Harmony Summary -->
-                        <div class="tab-pane fade show active" id="summary-pane" role="tabpanel" aria-labelledby="summary-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Harmony Summary</h4>
-                            <p class="text-muted">
-                              The Ashwin Harmony Index blends brain-related harmonics, cardiac micro-rhythms, thermal drift and
-                              environmental fingerprints into a single wellness trend. This view is designed for quick reading by
-                              wellness teams, coaches and health professionals (non-diagnostic).
-                            </p>
-
-                            <div class="row">
-                              <div class="col-lg-7 mb-3">
-                                <div class="chart-wrap">
-                                  <canvas id="summaryHarmonyChart"></canvas>
-                                </div>
-                              </div>
-                              <div class="col-lg-5">
-                                <ul class="list-group">
-                                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Average Harmony
-                                    <span id="badgeAvgHarmony" class="badge bg-primary rounded-pill">{avg_harmony}</span>
-                                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Min / Max Harmony
-                                    <span class="badge bg-secondary rounded-pill">{min_h} / {max_h}</span>
-                                  </li>
-                                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Before → After Average
-                                    <span class="badge bg-success rounded-pill">{avg_before} → {avg_after}</span>
-                                  </li>
-                                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Improvement %
-                                    <span id="badgeImprovement" class="badge bg-success rounded-pill">{improvement}%</span>
-                                  </li>
-                                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    Stability Gain
-                                    <span id="badgeStability" class="badge bg-info rounded-pill">{stability}%</span>
-
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
+                    <!-- LIVE STRIP + TAG FEED -->
+                    <div class="row mb-4">
+                      <div class="col-lg-8 mb-3">
+                    <div class="card p-3 h-100">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <h5 class="mb-0">Live Pattern Strip</h5>
+                          <small class="text-muted">Scrolling signal view + real-time pattern flags (non-medical)</small>
                         </div>
-
-                        <!-- Harmony Trend -->
-                        <div class="tab-pane fade" id="trend-pane" role="tabpanel" aria-labelledby="trend-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Harmony Trend</h4>
-                            <p class="text-muted">
-                              This chart shows how Harmony evolves over time in this window, alongside field-level EEG-like and
-                              ECG-like patterns. It demonstrates how the Ashwin Pillow converts raw field micro-signals into a
-                              coherent Harmony trend.
-                            </p>
-                            <div class="chart-wrap mb-3">
-                              <canvas id="harmonyTrendChart"></canvas>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Proof of Harmony -->
-                        <div class="tab-pane fade" id="proof-pane" role="tabpanel" aria-labelledby="proof-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Proof of Harmony</h4>
-                            <p class="text-muted">
-                              Before/after Harmony comparison across this time window. This is built for “show me the data” conversations
-                              around calm, regulation and field stability in a non-medical context.
-                            </p>
-                            <div class="row">
-                              <div class="col-lg-6 mb-3">
-                                <div class="chart-wrap">
-                                  <canvas id="proofCompareChart"></canvas>
-                                </div>
-                              </div>
-                              <div class="col-lg-6 mb-3">
-                                <div class="chart-wrap">
-                                  <canvas id="proofHarmonyChart"></canvas>
-                                </div>
-                              </div>
-                            </div>
-                            <a href="/proof/{selected}" class="btn btn-outline-secondary btn-sm">Open detailed Proof of Harmony page</a>
-                          </div>
-                        </div>
-
-                        <!-- Ratios -->
-                        <div class="tab-pane fade" id="ratios-pane" role="tabpanel" aria-labelledby="ratios-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Wellness Ratios</h4>
-                            <p class="text-muted">
-                              Brain coherence (EEG/ECG) and signal-to-noise (Light/Noise) as simple, clinician-friendly ratios.
-                              Higher coherence and better signal-to-noise support more ordered field patterns.
-                            </p>
-                            <div class="table-responsive">
-                              <table class="table table-sm table-striped align-middle">
-                                <thead>
-                                  <tr>
-                                    <th>Timestamp (ET)</th>
-                                    <th>Brain Coherence (EEG/ECG)</th>
-                                    <th>Signal-to-Noise (Light/Noise)</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {ratio_html}
-                                </tbody>
-                              </table>
-                            </div>
-                            <a href="/ratios/{selected}" class="btn btn-outline-secondary btn-sm">Open detailed Ratios page</a>
-                          </div>
-                        </div>
-
-                        <!-- Correlation Map -->
-                        <div class="tab-pane fade" id="corr-pane" role="tabpanel" aria-labelledby="corr-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Correlation Map</h4>
-                            <p class="text-muted">
-                              Correlations between field measures (EEG/ECG/Temp) and environment (Light/Noise). These show how the
-                              nervous system aligns or reacts to environment changes. Correlations are patterns, not diagnoses.
-                            </p>
-                            <div class="table-responsive">
-                              <table class="table table-sm table-striped align-middle">
-                                <thead>
-                                  <tr>
-                                    <th>Pair</th>
-                                    <th>Pearson r</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {corr_html}
-                                </tbody>
-                              </table>
-                            </div>
-                            <a href="/correlation/{selected}" class="btn btn-outline-secondary btn-sm">Open detailed Correlation page</a>
-                          </div>
-                        </div>
-
-                        <!-- Brain Field (EEG-like) -->
-                        <div class="tab-pane fade" id="brain-pane" role="tabpanel" aria-labelledby="brain-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Brain Field (EEG-like Harmonics)</h4>
-                            <p class="text-muted">
-                              Field harmonics primarily driven by brain-related activity. This shows how cortical-like rhythms organize
-                              as Harmony improves. Values are derived from contactless field sensing, not skin electrodes.
-                            </p>
-                            <div class="chart-wrap mb-3">
-                              <canvas id="brainFieldChart"></canvas>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Cardiac Field (ECG-like) -->
-                        <div class="tab-pane fade" id="cardiac-pane" role="tabpanel" aria-labelledby="cardiac-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Cardiac Field (ECG-like Harmonics)</h4>
-                            <p class="text-muted">
-                              Field rhythms influenced by cardiac micro-patterns. This gives a view of how the pillow senses heart-driven
-                              harmonics in the air and how those patterns align with Harmony.
-                            </p>
-                            <div class="chart-wrap mb-3">
-                              <canvas id="cardiacFieldChart"></canvas>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Emotional / Autonomic -->
-                        <div class="tab-pane fade" id="emotional-pane" role="tabpanel" aria-labelledby="emotional-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Emotional / Autonomic Field</h4>
-                            <p class="text-muted">
-                              A smoothed view of variability and drift patterns that relate to stress load vs. calm alignment.
-                              This tab is designed to communicate emotional/autonomic load in a wellness, non-medical framework.
-                            </p>
-                            <div class="chart-wrap mb-3">
-                              <canvas id="emotionalFieldChart"></canvas>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Thermal Drift -->
-                        <div class="tab-pane fade" id="thermal-pane" role="tabpanel" aria-labelledby="thermal-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Thermal Drift Field</h4>
-                            <p class="text-muted">
-                              Slow thermal drift patterns sensed through the field. Helps explain comfort, regulation and how the body
-                              settles over time during a session.
-                            </p>
-                            <div class="chart-wrap mb-3">
-                              <canvas id="thermalFieldChart"></canvas>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Environment Field -->
-                        <div class="tab-pane fade" id="env-pane" role="tabpanel" aria-labelledby="env-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Environment Field (Light + Noise)</h4>
-                            <p class="text-muted">
-                              Light and sound levels that surround the user. This shows how room conditions evolve and provides context
-                              for Harmony patterns (e.g., noisy or bright rooms vs darker, quieter ones).
-                            </p>
-                            <div class="chart-wrap mb-3">
-                              <canvas id="envFieldChart"></canvas>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Raw Field Trace -->
-                        <div class="tab-pane fade" id="raw-pane" role="tabpanel" aria-labelledby="raw-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Raw Field Trace (latest 40 readings)</h4>
-                            <p class="text-muted">
-                              Latest raw readings from the Ashwin Pillow: EEG-like, ECG-like, thermal, light, noise and computed Harmony.
-                              This view is for technical reviewers who want to see row-level values.
-                            </p>
-                            <div class="table-responsive">
-                              <table class="table table-sm table-striped align-middle">
-                                <thead>
-                                  <tr>
-                                    <th>Timestamp (ET)</th>
-                                    <th>EEG-like</th>
-                                    <th>ECG-like</th>
-                                    <th>Temp</th>
-                                    <th>Light</th>
-                                    <th>Noise</th>
-                                    <th>Harmony</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {raw_rows_html}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-
-                        <!-- Critical Harmony Events -->
-                        <div class="tab-pane fade" id="critical-pane" role="tabpanel" aria-labelledby="critical-tab">
-                          <div class="card tab-card p-4 mb-4">
-                            <h4 class="mb-3">Critical Harmony Events (Wellness Patterns)</h4>
-                            <p class="text-muted">
-                              Non-medical, pattern-based events where the user’s field temporarily left its typical Harmony range
-                              (e.g., extended stillness, turbulence bursts, environmental interference). These support Harmony Science
-                              interpretation and are not diagnoses.
-                            </p>
-                            <div class="table-responsive">
-                              <table class="table table-sm table-striped align-middle">
-                                <thead>
-                                  <tr>
-                                    <th>Timestamp (ET)</th>
-                                    <th>Event</th>
-                                    <th>Confidence</th>
-                                    <th>Explanation</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {events_html}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
+                        <div class="text-end">
+                          <small class="text-muted">Source:</small>
+                          <span class="badge bg-secondary">/api/recent</span>
                         </div>
                       </div>
 
-                              <div class="text-center mt-3 mb-2">
+                      <div class="mt-3">
+                        <canvas id="liveStrip" height="140" style="width:100%; border-radius:12px; background:#0b0f14;"></canvas>
+                      </div>
+
+                      <div class="mt-2">
+                        <small class="text-muted">
+                          This strip visualizes recent Harmony (scaled). Flags are pattern tags; zones are inferred field regions (not anatomy).
+                        </small>
+                      </div>
+                    </div>
+                      </div>
+
+                      <div class="col-lg-4 mb-3">
+                    <div class="card p-3 h-100">
+                      <h5 class="mb-2">Latest Tags</h5>
+                      <small class="text-muted d-block mb-2">Pattern + zone feed (last 40)</small>
+                      <div id="tagFeed" style="max-height: 260px; overflow:auto;"></div>
+
+                <hr />
+                <h6 class="mb-2">Your Tags</h6>
+                <div id="userTagList" style="max-height: 220px; overflow:auto;"></div>
+
+                <hr />
                 <small class="text-muted">
-                  Graph essentials included: clear purpose, labeled axes, consistent colors, smoothing for readability,
-                  Harmony-first narrative, and exportable data. All views are wellness-focused and non-diagnostic.
+                  Disclaimer: research/wellness visualization only. Not diagnostic.
                 </small>
-              </div>
-              </div>
 
-            
-              {chart_data_script}
-              {charts_js}
+                    </div>
+                      </div>
+                    </div>
 
-              {BUMP_JS}
+                    <!-- ====== RADAR PANEL (KEEP ONE COPY ONLY) ====== -->
+                    <div class="row mb-4" id="radarPanel" data-user="{selected}">
+                      <div class="col-lg-8 mb-3">
+                    <div class="card p-3 h-100">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"> Body Radar</h5>
+                        <div id="radarMeta" class="text-muted small"></div>
+                      </div>
 
-              <script>
-              {LIVE_STRIP_JS}
-              </script>
+                      <div class="mt-3 d-flex justify-content-center">
+                        <canvas
+                          id="radarCanvas"
+                          width="520"
+                          height="520"
+                          style="width:100%; max-width:520px; border-radius:12px; background:#0b0f14;"
+                        ></canvas>
+                      </div>
+                      <div class="mt-2 small text-muted" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+                  <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#0b7a2a;margin-right:6px;"></span>0–19</span>
+                  <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#34c759;margin-right:6px;"></span>20–39</span>
+                  <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ffd60a;margin-right:6px;"></span>40–59</span>
+                  <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ff9f0a;margin-right:6px;"></span>60–79</span>
+                  <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#ff2d2d;margin-right:6px;"></span>80–100</span>
+                  <span style="opacity:.8;">(Harmony)</span>
+                </div>
 
-              <script>
-              {RADAR_SCRIPT_JS}
-              </script>
+                    </div>
+                      </div>
 
-              <script>
-              {POLL_JS}
-              </script>
+                      <div class="col-lg-4 mb-3">
+                    <div class="card p-3 h-100">
+                      <h5 class="mb-2">Top Patterns</h5>
+                      <div id="radarPatterns"></div>
+                      <hr />
+                      <small class="text-muted">Non-diagnostic research/wellness visualization only.</small>
+                    </div>
+                      </div>
+                    </div>
 
-              {RANGE_JS}
+                        <!-- Tabs: Harmony first, supporting second, technical/critical third -->
+                        <ul class="nav nav-pills mb-3" id="harmonyTabs" role="tablist">
+                          <!-- Row 1: Core Harmony -->
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="summary-tab" data-bs-toggle="pill" data-bs-target="#summary-pane" type="button" role="tab">
+                              Harmony Summary
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="trend-tab" data-bs-toggle="pill" data-bs-target="#trend-pane" type="button" role="tab">
+                              Harmony Trend
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="proof-tab" data-bs-toggle="pill" data-bs-target="#proof-pane" type="button" role="tab">
+                              Proof of Harmony
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="ratios-tab" data-bs-toggle="pill" data-bs-target="#ratios-pane" type="button" role="tab">
+                              Ratios
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="corr-tab" data-bs-toggle="pill" data-bs-target="#corr-pane" type="button" role="tab">
+                              Correlation Map
+                            </button>
+                          </li>
 
-              </body>
-              </html>
-                 """
-    
-    if not users:
+                          <!-- Row 2: Field-level supporting tabs -->
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="brain-tab" data-bs-toggle="pill" data-bs-target="#brain-pane" type="button" role="tab">
+                              Brain Field (EEG-like)
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="cardiac-tab" data-bs-toggle="pill" data-bs-target="#cardiac-pane" type="button" role="tab">
+                              Cardiac Field (ECG-like)
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="emotional-tab" data-bs-toggle="pill" data-bs-target="#emotional-pane" type="button" role="tab">
+                              Emotional / Autonomic
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="thermal-tab" data-bs-toggle="pill" data-bs-target="#thermal-pane" type="button" role="tab">
+                              Thermal Drift Field
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="env-tab" data-bs-toggle="pill" data-bs-target="#env-pane" type="button" role="tab">
+                              Environment Field
+                            </button>
+                          </li>
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="raw-tab" data-bs-toggle="pill" data-bs-target="#raw-pane" type="button" role="tab">
+                              Raw Field Trace
+                            </button>
+                          </li>
+
+                          <!-- Row 3: Critical Harmony Events -->
+                          <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="critical-tab" data-bs-toggle="pill" data-bs-target="#critical-pane" type="button" role="tab">
+                              Critical Harmony Events
+                            </button>
+                          </li>
+                        </ul>
+
+                        <div class="tab-content" id="harmonyTabsContent">
+                          <!-- Harmony Summary -->
+                          <div class="tab-pane fade show active" id="summary-pane" role="tabpanel" aria-labelledby="summary-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Harmony Summary</h4>
+                              <p class="text-muted">
+                                The Ashwin Harmony Index blends brain-related harmonics, cardiac micro-rhythms, thermal drift and
+                                environmental fingerprints into a single wellness trend. This view is designed for quick reading by
+                                wellness teams, coaches and health professionals (non-diagnostic).
+                              </p>
+
+                              <div class="row">
+                                <div class="col-lg-7 mb-3">
+                                  <div class="chart-wrap">
+                                    <canvas id="summaryHarmonyChart"></canvas>
+                                  </div>
+                                </div>
+                                <div class="col-lg-5">
+                                  <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                      Average Harmony
+                                      <span id="badgeAvgHarmony" class="badge bg-primary rounded-pill">{avg_harmony}</span>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                      Min / Max Harmony
+                                      <span class="badge bg-secondary rounded-pill">{min_h} / {max_h}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                      Before → After Average
+                                      <span class="badge bg-success rounded-pill">{avg_before} → {avg_after}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                      Improvement %
+                                      <span id="badgeImprovement" class="badge bg-success rounded-pill">{improvement}%</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                      Stability Gain
+                                      <span id="badgeStability" class="badge bg-info rounded-pill">{stability}%</span>
+
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Harmony Trend -->
+                          <div class="tab-pane fade" id="trend-pane" role="tabpanel" aria-labelledby="trend-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Harmony Trend</h4>
+                              <p class="text-muted">
+                                This chart shows how Harmony evolves over time in this window, alongside field-level EEG-like and
+                                ECG-like patterns. It demonstrates how the Ashwin Pillow converts raw field micro-signals into a
+                                coherent Harmony trend.
+                              </p>
+                              <div class="chart-wrap mb-3">
+                                <canvas id="harmonyTrendChart"></canvas>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Proof of Harmony -->
+                          <div class="tab-pane fade" id="proof-pane" role="tabpanel" aria-labelledby="proof-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Proof of Harmony</h4>
+                              <p class="text-muted">
+                                Before/after Harmony comparison across this time window. This is built for “show me the data” conversations
+                                around calm, regulation and field stability in a non-medical context.
+                              </p>
+                              <div class="row">
+                                <div class="col-lg-6 mb-3">
+                                  <div class="chart-wrap">
+                                    <canvas id="proofCompareChart"></canvas>
+                                  </div>
+                                </div>
+                                <div class="col-lg-6 mb-3">
+                                  <div class="chart-wrap">
+                                    <canvas id="proofHarmonyChart"></canvas>
+                                  </div>
+                                </div>
+                              </div>
+                              <a href="/proof/{selected}" class="btn btn-outline-secondary btn-sm">Open detailed Proof of Harmony page</a>
+                            </div>
+                          </div>
+
+                          <!-- Ratios -->
+                          <div class="tab-pane fade" id="ratios-pane" role="tabpanel" aria-labelledby="ratios-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Wellness Ratios</h4>
+                              <p class="text-muted">
+                                Brain coherence (EEG/ECG) and signal-to-noise (Light/Noise) as simple, clinician-friendly ratios.
+                                Higher coherence and better signal-to-noise support more ordered field patterns.
+                              </p>
+                              <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle">
+                                  <thead>
+                                    <tr>
+                                      <th>Timestamp (ET)</th>
+                                      <th>Brain Coherence (EEG/ECG)</th>
+                                      <th>Signal-to-Noise (Light/Noise)</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ratio_html}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <a href="/ratios/{selected}" class="btn btn-outline-secondary btn-sm">Open detailed Ratios page</a>
+                            </div>
+                          </div>
+
+                          <!-- Correlation Map -->
+                          <div class="tab-pane fade" id="corr-pane" role="tabpanel" aria-labelledby="corr-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Correlation Map</h4>
+                              <p class="text-muted">
+                                Correlations between field measures (EEG/ECG/Temp) and environment (Light/Noise). These show how the
+                                nervous system aligns or reacts to environment changes. Correlations are patterns, not diagnoses.
+                              </p>
+                              <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle">
+                                  <thead>
+                                    <tr>
+                                      <th>Pair</th>
+                                      <th>Pearson r</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {corr_html}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <a href="/correlation/{selected}" class="btn btn-outline-secondary btn-sm">Open detailed Correlation page</a>
+                            </div>
+                          </div>
+
+                          <!-- Brain Field (EEG-like) -->
+                          <div class="tab-pane fade" id="brain-pane" role="tabpanel" aria-labelledby="brain-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Brain Field (EEG-like Harmonics)</h4>
+                              <p class="text-muted">
+                                Field harmonics primarily driven by brain-related activity. This shows how cortical-like rhythms organize
+                                as Harmony improves. Values are derived from contactless field sensing, not skin electrodes.
+                              </p>
+                              <div class="chart-wrap mb-3">
+                                <canvas id="brainFieldChart"></canvas>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Cardiac Field (ECG-like) -->
+                          <div class="tab-pane fade" id="cardiac-pane" role="tabpanel" aria-labelledby="cardiac-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Cardiac Field (ECG-like Harmonics)</h4>
+                              <p class="text-muted">
+                                Field rhythms influenced by cardiac micro-patterns. This gives a view of how the pillow senses heart-driven
+                                harmonics in the air and how those patterns align with Harmony.
+                              </p>
+                              <div class="chart-wrap mb-3">
+                                <canvas id="cardiacFieldChart"></canvas>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Emotional / Autonomic -->
+                          <div class="tab-pane fade" id="emotional-pane" role="tabpanel" aria-labelledby="emotional-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Emotional / Autonomic Field</h4>
+                              <p class="text-muted">
+                                A smoothed view of variability and drift patterns that relate to stress load vs. calm alignment.
+                                This tab is designed to communicate emotional/autonomic load in a wellness, non-medical framework.
+                              </p>
+                              <div class="chart-wrap mb-3">
+                                <canvas id="emotionalFieldChart"></canvas>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Thermal Drift -->
+                          <div class="tab-pane fade" id="thermal-pane" role="tabpanel" aria-labelledby="thermal-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Thermal Drift Field</h4>
+                              <p class="text-muted">
+                                Slow thermal drift patterns sensed through the field. Helps explain comfort, regulation and how the body
+                                settles over time during a session.
+                              </p>
+                              <div class="chart-wrap mb-3">
+                                <canvas id="thermalFieldChart"></canvas>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Environment Field -->
+                          <div class="tab-pane fade" id="env-pane" role="tabpanel" aria-labelledby="env-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Environment Field (Light + Noise)</h4>
+                              <p class="text-muted">
+                                Light and sound levels that surround the user. This shows how room conditions evolve and provides context
+                                for Harmony patterns (e.g., noisy or bright rooms vs darker, quieter ones).
+                              </p>
+                              <div class="chart-wrap mb-3">
+                                <canvas id="envFieldChart"></canvas>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Raw Field Trace -->
+                          <div class="tab-pane fade" id="raw-pane" role="tabpanel" aria-labelledby="raw-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Raw Field Trace (latest 40 readings)</h4>
+                              <p class="text-muted">
+                                Latest raw readings from the Ashwin Pillow: EEG-like, ECG-like, thermal, light, noise and computed Harmony.
+                                This view is for technical reviewers who want to see row-level values.
+                              </p>
+                              <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle">
+                                  <thead>
+                                    <tr>
+                                      <th>Timestamp (ET)</th>
+                                      <th>EEG-like</th>
+                                      <th>ECG-like</th>
+                                      <th>Temp</th>
+                                      <th>Light</th>
+                                      <th>Noise</th>
+                                      <th>Harmony</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {raw_rows_html}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- Critical Harmony Events -->
+                          <div class="tab-pane fade" id="critical-pane" role="tabpanel" aria-labelledby="critical-tab">
+                            <div class="card tab-card p-4 mb-4">
+                              <h4 class="mb-3">Critical Harmony Events (Wellness Patterns)</h4>
+                              <p class="text-muted">
+                                Non-medical, pattern-based events where the user’s field temporarily left its typical Harmony range
+                                (e.g., extended stillness, turbulence bursts, environmental interference). These support Harmony Science
+                                interpretation and are not diagnoses.
+                              </p>
+                              <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle">
+                                  <thead>
+                                    <tr>
+                                      <th>Timestamp (ET)</th>
+                                      <th>Event</th>
+                                      <th>Confidence</th>
+                                      <th>Explanation</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {events_html}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                                <div class="text-center mt-3 mb-2">
+                  <small class="text-muted">
+                    Graph essentials included: clear purpose, labeled axes, consistent colors, smoothing for readability,
+                    Harmony-first narrative, and exportable data. All views are wellness-focused and non-diagnostic.
+                  </small>
+                </div>
+                </div>
+
+              
+                {chart_data_script}
+                {charts_js}
+
+                {BUMP_JS}
+
+                <script>
+                {LIVE_STRIP_JS}
+                </script>
+
+                <script>
+                {RADAR_SCRIPT_JS}
+                </script>
+
+                <script>
+                {POLL_JS}
+                </script>
+
+                {RANGE_JS}
+
+                </body>
+                </html>
+                  """
+      
+      if not users:
         users = [(1, "User 1")]
 
-    return HTMLResponse(content=html)
+      return HTMLResponse(content=html)
 
 @app.get("/api/correlation/{uid}")
 def api_correlation(
