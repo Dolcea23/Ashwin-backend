@@ -3772,19 +3772,19 @@ def board(req: Request):
       last_ts_et = "-"
 
     # ---------- Build numeric arrays safely ----------
-    if not rows:
-        rows = [(0,0,98,0,0,"1970-01-01T00:00:00")]
+if not rows:
+    rows = [(0.0, 0.0, 98.6, 0.0, 0.0, "1970-01-01T00:00:00")]
 
-    times_raw = []
-    eeg_vals = []
-    ecg_vals = []
-    temp_vals = []
-    light_vals = []
-    noise_vals = []
-    harmonies = []
-    autonomic_vals = []
+times_raw = []
+eeg_vals = []
+ecg_vals = []
+temp_vals = []
+light_vals = []
+noise_vals = []
+harmonies = []
+autonomic_vals = []
 
-    for (eeg, ecg, temp, light, noise, ts) in rows:
+for (eeg, ecg, temp, light, noise, ts) in rows:
 
         times_raw.append(parse_iso_to_et(ts))
 
@@ -3801,62 +3801,62 @@ def board(req: Request):
         autonomic_vals.append(autonomic)
 
     # ---------- SAFETY: prevent empty arrays crashing charts ----------
-    if not times_raw:
+if not times_raw:
         times_raw = ["-"]
 
-    if not harmonies:
+if not harmonies:
         harmonies = [0]
 
-    if not eeg_vals:
+if not eeg_vals:
         eeg_vals = [0]
 
-    if not ecg_vals:
+if not ecg_vals:
         ecg_vals = [0]
 
     # --- Drift (avg step-to-step change in Harmony) ---
-    try:
+try:
         drifts = [abs(harmonies[i] - harmonies[i-1]) for i in range(1, len(harmonies))]
         avg_drift = round(mean(drifts), 3) if drifts else 0.0
         max_drift = round(max(drifts), 3) if drifts else 0.0
-    except Exception:
+except Exception:
         avg_drift = 0.0
         max_drift = 0.0
 
     # Core stats from raw harmonies
-    if harmonies:
+if harmonies:
         avg_harmony = round(mean(harmonies), 2)
         min_h = round(min(harmonies), 2)
         max_h = round(max(harmonies), 2)
-    else:
+else:
         avg_harmony = min_h = max_h = 0.0
 
     # Split before/after safely
-    n = len(harmonies)
-    mid = max(1, n // 2)
+n = len(harmonies)
+mid = max(1, n // 2)
 
-    before = harmonies[:mid]
-    after = harmonies[mid:]
+before = harmonies[:mid]
+after = harmonies[mid:]
 
-    avg_before = round(mean(before), 2) if before else 0.0
-    avg_after = round(mean(after), 2) if after else 0.0
+avg_before = round(mean(before), 2) if before else 0.0
+avg_after = round(mean(after), 2) if after else 0.0
 
     # Improvement (% change) safely
-    improvement = round(((avg_after - avg_before) / avg_before) * 100, 2) if avg_before else 0.0
+improvement = round(((avg_after - avg_before) / avg_before) * 100, 2) if avg_before else 0.0
 
     # Stability safely (pstdev requires >= 2 points)
-    stability = 0.0
-    try:
+stability = 0.0
+try:
         if len(before) >= 2 and len(after) >= 2:
             stability = round(((pstdev(before) - pstdev(after)) / pstdev(before)) * 100, 2) if pstdev(before) else 0.0
-    except Exception:
+except Exception:
         stability = 0.0
 
-    hri = round((improvement + stability) / 2, 2)
+hri = round((improvement + stability) / 2, 2)
 
         # ---------- Zone Inference ----------
-    zone = infer_zone_from_window(eeg_vals, ecg_vals, temp_vals)
+zone = infer_zone_from_window(eeg_vals, ecg_vals, temp_vals)
 
-    zone_html = f"""
+zone_html = f"""
     <div class="col-sm-6 col-lg-3 mb-3">
     <div class="card kpi-card p-3 h-100">
     <h6 class="text-muted mb-1">Zone Dominance</h6>
@@ -3869,9 +3869,9 @@ def board(req: Request):
     """
 
     # ---------- Ratios (brain coherence + signal-to-noise) ----------
-    ratio_rows = []
+ratio_rows = []
 
-    for eeg, ecg, temp, light, noise, ts in rows:
+for eeg, ecg, temp, light, noise, ts in rows:
 
         if ecg:
             brain_coherence = round(eeg / ecg, 3) if eeg is not None and ecg != 0 else 0
@@ -3886,35 +3886,35 @@ def board(req: Request):
         ratio_rows.append((parse_iso_to_et(ts), brain_coherence, signal_to_noise))
 
     # ---------- Correlations ----------
-    def safe_series(vals):
+def safe_series(vals):
         return [v for v in vals if v is not None]
 
-    eeg_s = safe_series(eeg_vals)
-    ecg_s = safe_series(ecg_vals)
-    temp_s = safe_series(temp_vals)
-    light_s = safe_series(light_vals)
-    noise_s = safe_series(noise_vals)
+eeg_s = safe_series(eeg_vals)
+ecg_s = safe_series(ecg_vals)
+temp_s = safe_series(temp_vals)
+light_s = safe_series(light_vals)
+noise_s = safe_series(noise_vals)
 
-    corr_rows = []
+corr_rows = []
 
-    def add_corr(label, xs, ys):
+def add_corr(label, xs, ys):
         r = pearson(xs, ys)
         if r is None:
             corr_rows.append((label, "-"))
         else:
             corr_rows.append((label, r))
 
-    add_corr("EEG vs Light", eeg_s, light_s)
-    add_corr("EEG vs Noise", eeg_s, noise_s)
-    add_corr("ECG vs Light", ecg_s, light_s)
-    add_corr("ECG vs Noise", ecg_s, noise_s)
-    add_corr("Temp vs Light", temp_s, light_s)
-    add_corr("Temp vs Noise", temp_s, noise_s)
+add_corr("EEG vs Light", eeg_s, light_s)
+add_corr("EEG vs Noise", eeg_s, noise_s)
+add_corr("ECG vs Light", ecg_s, light_s)
+add_corr("ECG vs Noise", ecg_s, noise_s)
+add_corr("Temp vs Light", temp_s, light_s)
+add_corr("Temp vs Noise", temp_s, noise_s)
 
     # ---------- Tables HTML ----------
-    raw_rows_html = ""
+raw_rows_html = ""
 
-    for (eeg, ecg, temp, light, noise, ts), h in zip(rows[-40:], harmonies[-40:]):
+for (eeg, ecg, temp, light, noise, ts), h in zip(rows[-40:], harmonies[-40:]):
 
         eeg_s_ = f"{safe(eeg):.2f}" if eeg is not None else "-"
         ecg_s_ = f"{safe(ecg):.2f}" if ecg is not None else "-"
@@ -3935,25 +3935,25 @@ def board(req: Request):
             f"</tr>"
         )
 
-    ratio_html = ""
+ratio_html = ""
 
-    for ts, bc, sn in ratio_rows[-40:]:
+for ts, bc, sn in ratio_rows[-40:]:
         ratio_html += f"<tr><td>{ts}</td><td>{bc}</td><td>{sn}</td></tr>"
 
-    corr_html = ""
+corr_html = ""
 
-    for label, val in corr_rows:
+for label, val in corr_rows:
         corr_html += f"<tr><td>{label}</td><td>{val}</td></tr>"
 
     # ---------- Critical Harmony Events ----------
-    events_html = ""
+events_html = ""
 
-    if not event_rows:
+if not event_rows:
         events_html = (
             "<tr><td colspan='4' class='text-muted'>No Critical Harmony Events in this window."
             " Harmony patterns stayed within expected wellness ranges.</td></tr>"
         )
-    else:
+else:
         for etype, conf, note, created_at in event_rows:
 
             label, safe_desc = map_event_type(etype)
@@ -3969,7 +3969,7 @@ def board(req: Request):
             )
 
     # ---------- Chart arrays ----------
-    chart_times, chart_harmonies, chart_eeg, chart_ecg = downsample_and_smooth(
+chart_times, chart_harmonies, chart_eeg, chart_ecg = downsample_and_smooth(
         times_raw,
         harmonies,
         eeg_vals,
@@ -3979,7 +3979,7 @@ def board(req: Request):
     )
 
     # ---------- Range Options ----------
-    range_options = [
+range_options = [
         ("session", "Last Session"),
         ("10m", "Last 10 minutes"),
         ("30m", "Last 30 minutes"),
@@ -3992,18 +3992,18 @@ def board(req: Request):
 
   
 # ---------- Prepare chart arrays ----------
-    chart_times = times_raw
-    chart_harmonies = harmonies
-    chart_eeg = eeg_vals
-    chart_ecg = ecg_vals
+chart_times = times_raw
+chart_harmonies = harmonies
+chart_eeg = eeg_vals
+chart_ecg = ecg_vals
 
-    if not chart_times:
+if not chart_times:
       chart_times = ["-"]
       chart_harmonies = [0]
       chart_eeg = [0]
       chart_ecg = [0]
     # ---------- Chart JSON ----------
-    chart_payload = {
+chart_payload = {
         "times": chart_times,
         "harmonies": chart_harmonies,
         "eeg": chart_eeg,
@@ -4016,16 +4016,16 @@ def board(req: Request):
         "avg_after": avg_after,
     }
 
-    chart_json = json.dumps(chart_payload)
+chart_json = json.dumps(chart_payload)
 
-    chart_data_script = f"""
+chart_data_script = f"""
     <script>
     window.CHART_DATA = {chart_json};
     </script>
     """
 # ---------- Charts JS (SAFE TEMPLATE) ----------
 
-    charts_js = r'''
+charts_js = r'''
     <script>
     (function () {
       const D = window.CHART_DATA || {};
@@ -4128,20 +4128,20 @@ def board(req: Request):
     </script>
     '''
 
-    range_select_html = "".join(
+range_select_html = "".join(
             f"<option value='{val}' {'selected' if val == range_key else ''}>{label}</option>"
             for val, label in range_options
         )
 
         # --- SAFETY DEFAULTS: never let /board crash due to missing JS blocks ---
-    LIVE_STRIP_JS = globals().get("LIVE_STRIP_JS", "")
-    RADAR_SCRIPT_JS = globals().get("RADAR_SCRIPT_JS", "")
+LIVE_STRIP_JS = globals().get("LIVE_STRIP_JS", "")
+RADAR_SCRIPT_JS = globals().get("RADAR_SCRIPT_JS", "")
         
 
             # ---------- HTML ----------
        
        
-    RANGE_JS = r"""
+RANGE_JS = r"""
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
@@ -4182,14 +4182,14 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 """
     # Fetch users for dropdown
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
-    users = c.fetchall()
-    conn.close()
+conn = get_conn()
+c = conn.cursor()
+c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
+users = c.fetchall()
+conn.close()
 
       # Safety fallback if DB empty
-    if not users:
+if not users:
           users = [(1, "User 1")]
 
 user_options_html = ""
@@ -4789,9 +4789,8 @@ for uid, display_name in users:
                 </body>
                 </html>
                   """
-      
       if not users:
-        users = [(1, "User 1")]
+       users = [(1, "User 1")]
 
       return HTMLResponse(content=html)
 
