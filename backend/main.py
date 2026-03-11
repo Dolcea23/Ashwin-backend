@@ -3766,7 +3766,10 @@ def board(req: Request):
     event_rows = get_window_events(selected, range_key, start, end)
 
     # Last reading timestamp
-    last_ts_et = parse_iso_to_et(rows[-1][5]) if rows else "-"
+    try:
+      last_ts_et = parse_iso_to_et(rows[-1][5]) if rows else "-"
+    except Exception:
+      last_ts_et = "-"
 
     # ---------- Build numeric arrays safely ----------
     if not rows:
