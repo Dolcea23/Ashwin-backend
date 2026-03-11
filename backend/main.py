@@ -1,3 +1,6 @@
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
 from __future__ import annotations
 
 # -*- coding: utf-8 -*-
@@ -32,12 +35,6 @@ from zoneinfo import ZoneInfo
 from collections import Counter
 
 import os
-
-@app.get("/debug/db")
-def debug_db():
-    return {
-        "database_url": os.getenv("DATABASE_URL")
-    }
 
 MAX_BOARD_ROWS = 10000
 
@@ -616,6 +613,21 @@ def get_conn():
 # ---------- FastAPI App ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
 
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/debug/db")
+def debug_db():
+    return {
+        "database_url": os.getenv("DATABASE_URL")
+    }
+
 # -----------------------------
 # DEBUG DATABASE ENDPOINTS
 # -----------------------------
@@ -629,7 +641,6 @@ def debug_readings():
     conn.close()
     return rows
 
-
 @app.get("/sessions")
 def debug_sessions():
     conn = get_conn()
@@ -638,15 +649,6 @@ def debug_sessions():
     rows = c.fetchall()
     conn.close()
     return rows
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Templates (only needed if you actually use TemplateResponse)
 templates = Jinja2Templates(directory="templates")
 
