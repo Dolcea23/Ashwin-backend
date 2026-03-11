@@ -1,5 +1,7 @@
 from __future__ import annotations
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
 # -*- coding: utf-8 -*-
 
 # -------------------------------------------------
@@ -627,9 +629,7 @@ def debug_db():
     return {"database_url": os.getenv("DATABASE_URL")}
 
 
-# -----------------------------
-# DEBUG DATABASE ENDPOINTS
-# -----------------------------
+
 
 
 @app.get("/readings")
@@ -688,7 +688,7 @@ def health():
 # -----------------------------
 @app.get("/")
 def root():
-    return RedirectResponse(url="/board?user=1&range=24h")
+    return RedirectResponse(url="//board?range=24h")
 
 
 @app.get("/dashboard")
@@ -4110,6 +4110,17 @@ def board(req: Request):
     c.execute("SELECT id, COALESCE(display_name, name) FROM users")
     users = c.fetchall()
 
+    # ⭐ If no users exist, create a default user so the board never breaks
+    if not users:
+        c.execute(
+            "INSERT INTO users (name, display_name) VALUES (?, ?)",
+            ("default", "Default User")
+        )
+        conn.commit()
+
+        c.execute("SELECT id, COALESCE(display_name, name) FROM users")
+        users = c.fetchall()
+
     # ⭐ ALWAYS LOAD DASHBOARD
     q_user = req.query_params.get("user")
 
@@ -4130,7 +4141,7 @@ def board(req: Request):
         if row:
             selected = int(row[0])
         else:
-            selected = users[0][0] if users else 1
+            selected = users[0][0]
 
     # Get display name for selected user
     c.execute(
