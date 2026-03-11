@@ -3193,17 +3193,8 @@ def api_board_snapshot(
     # Apply limit if needed
     if limit and len(rows) > limit:
         rows = rows[-limit:]
-
     if not rows:
-
-        return JSONResponse(
-            {
-                "has_data": False,
-                "user": user,
-                "range": range_key,
-                "message": "No readings found for this user.",
-            }
-        )
+        rows = [(0.0, 0.0, 98.6, 0.0, 0.0, "1970-01-01T00:00:00")]
 
     # rest of function continues...
 
