@@ -3665,12 +3665,11 @@ def get_window_rows(user: int, range_key: str, start: str | None = None, end: st
     # 4️⃣ All time (limited for performance)
     # ---------------------------
     c.execute("""
-        SELECT eeg, ecg, temperature, light, noise, timestamp
-        FROM readings
-        WHERE user_id=?
-        ORDER BY timestamp DESC
-        LIMIT ?
-    """, (user, MAX_BOARD_ROWS))
+          SELECT eeg, ecg, temperature, light, noise, timestamp
+          FROM readings
+          WHERE user_id=?
+          ORDER BY timestamp ASC
+        """, (user,))
 
     rows = c.fetchall()
     rows.reverse()  # restore chronological order
