@@ -1,6 +1,3 @@
-@app.get("/ping")
-def ping():
-    return {"status": "alive"}
 from __future__ import annotations
 
 # -*- coding: utf-8 -*-
@@ -15,6 +12,7 @@ from __future__ import annotations
 # ---------- AUTO BACKUP HOOK ----------
 try:
     import auto_backup
+
     auto_backup.perform_backup()
 except Exception as e:
     print("⚠️ Backup module missing or failed:", e)
@@ -588,9 +586,9 @@ BUMP_JS = r"""
 """
 
 
-
 # ---------- Partner / Licensing Boundary ----------
 PARTNER_KEY = os.getenv("ASHWIN_PARTNER_KEY", "")
+
 
 def require_partner_key(x_ashwin_key: Optional[str]):
     # Dev mode: allow if env var not set
@@ -605,6 +603,7 @@ import os
 import psycopg2
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
@@ -622,15 +621,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/debug/db")
 def debug_db():
-    return {
-        "database_url": os.getenv("DATABASE_URL")
-    }
+    return {"database_url": os.getenv("DATABASE_URL")}
+
 
 # -----------------------------
 # DEBUG DATABASE ENDPOINTS
 # -----------------------------
+
 
 @app.get("/readings")
 def debug_readings():
@@ -641,6 +641,7 @@ def debug_readings():
     conn.close()
     return rows
 
+
 @app.get("/sessions")
 def debug_sessions():
     conn = get_conn()
@@ -649,21 +650,25 @@ def debug_sessions():
     rows = c.fetchall()
     conn.close()
     return rows
+
+
 # Templates (only needed if you actually use TemplateResponse)
 templates = Jinja2Templates(directory="templates")
+
 
 # Simple test page (optional)
 @app.get("/hello", response_class=HTMLResponse)
 def hello(request: Request):
     return templates.TemplateResponse("hello.html", {"request": request})
 
+
 # Health endpoint
 @app.get("/health")
 def health():
     return {"ok": True}
 
-# ✅ Mount your routes (do this ONCE, after app is created)
 
+# ✅ Mount your routes (do this ONCE, after app is created)
 
 
 # IMPORTANT:
@@ -677,12 +682,14 @@ def health():
 
 # DISABLED duplicate app init: app = FastAPI(title="Ashwin Wellness Backend - v12")
 
+
 # -----------------------------
 # ROOT + DASHBOARD ROUTES
 # -----------------------------
 @app.get("/")
 def root():
     return RedirectResponse(url="/board?user=1&range=24h")
+
 
 @app.get("/dashboard")
 def dashboard(user: int = Query(1, ge=1)):
@@ -708,16 +715,20 @@ def _to_utc_naive(dt_et: datetime) -> datetime:
 # DAILY INDEX ENGINE (SQLite-only; no ORM)
 # -------------------------------------------------
 
+
 def compute_daily_index_sqlite(uid: int, day_yyyy_mm_dd: str):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         SELECT user_id, day, index_value, level, color,
                brain_score, heart_score, temp_score, env_score,
                recovery_score, harmony_score, confidence, created_at
         FROM ashwin_daily
         WHERE user_id=? AND day=?
-    """, (uid, day_yyyy_mm_dd))
+    """,
+        (uid, day_yyyy_mm_dd),
+    )
     row = c.fetchone()
     conn.close()
 
@@ -783,13 +794,16 @@ if ENABLE_DAILY_ENGINE_THREAD:
 ET = ZoneInfo("America/New_York")
 UTC = ZoneInfo("UTC")
 
+
 def to_et(dt: datetime):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(ET)
 
+
 def fmt_et(dt: datetime):
     return to_et(dt).strftime("%m/%d/%Y %I:%M %p")
+
 
 def parse_iso_to_et(ts: str):
     try:
@@ -797,12 +811,14 @@ def parse_iso_to_et(ts: str):
     except:
         return ts
 
+
 # ---------- Database ----------
 def init_db():
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -810,9 +826,11 @@ def init_db():
             display_name TEXT,
             created_at TEXT
         )
-    """)
+    """
+    )
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS sessions(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -820,9 +838,11 @@ def init_db():
             start_time TEXT,
             end_time TEXT
         )
-    """)
+    """
+    )
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS readings(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -834,9 +854,11 @@ def init_db():
             noise REAL,
             timestamp TEXT
         )
-    """)
+    """
+    )
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS life_events(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -845,17 +867,21 @@ def init_db():
             note TEXT,
             created_at TEXT
         )
-    """)
+    """
+    )
 
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS profiles(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             data TEXT,
             created_at TEXT
         )
-    """)
-    c.execute("""
+    """
+    )
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS ashwin_daily(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -873,9 +899,11 @@ def init_db():
             created_at TEXT,
             UNIQUE(user_id, day)
         )
-    """)
-        # --- user_tags: user-labeled events for correlation (non-diagnostic) ---
-    c.execute("""
+    """
+    )
+    # --- user_tags: user-labeled events for correlation (non-diagnostic) ---
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS user_tags (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id INTEGER NOT NULL,
@@ -886,8 +914,10 @@ def init_db():
           severity INTEGER,               -- optional 1..10
           created_at TEXT NOT NULL
         )
-        """)
-    c.execute("""
+        """
+    )
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS pattern_review_queue (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id INTEGER NOT NULL,
@@ -900,15 +930,20 @@ def init_db():
           status TEXT NOT NULL DEFAULT 'new', -- new|reviewed|dismissed|promoted
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
-        """)
+        """
+    )
 
-        # helpful index for time queries
-    c.execute("CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)")
+    # helpful index for time queries
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)"
+    )
 
     conn.commit()
     conn.close()
 
+
 init_db()
+
 
 # ---------- Models ----------
 class UserSignup(BaseModel):
@@ -916,9 +951,11 @@ class UserSignup(BaseModel):
     pin: str
     full_name: Optional[str] = None
 
+
 class UserLogin(BaseModel):
     name: str
     pin: str
+
 
 class SensorReadingIn(BaseModel):
     device_id: str
@@ -936,10 +973,12 @@ class StartSession(BaseModel):
     user_id: int
     label: Optional[str] = "sleep"
 
+
 class BaselineProfile(BaseModel):
     user_id: int
     createdAt: Optional[str] = None
     version: Optional[str] = None
+
     class Config:
         extra = "allow"
 
@@ -947,6 +986,7 @@ class BaselineProfile(BaseModel):
 # ---------- Utils ----------
 def safe(v, d=0.0):
     return v if v is not None else d
+
 
 def calc_harmony(eeg, ecg, temp):
     """
@@ -981,14 +1021,10 @@ def calc_harmony(eeg, ecg, temp):
 
     balance_score = balance * 100
 
-    harmony = (
-        eeg * 0.35 +
-        ecg * 0.35 +
-        thermal_score * 0.20 +
-        balance_score * 0.10
-    )
+    harmony = eeg * 0.35 + ecg * 0.35 + thermal_score * 0.20 + balance_score * 0.10
 
     return round(max(0, min(100, harmony)), 2)
+
 
 # ---------- Advanced Algorithm - Ashwin Index v1.0 ----------
 def _normalize_series(values, fallback=50.0):
@@ -1008,16 +1044,28 @@ def compute_ashwin_index_v1(rows):
 
     if not rows:
         return {
-            "index": 50, "level": "No Data", "color": "#9E9E9E",
-            "brain_calm_score": 50, "heart_rhythm_score": 50,
-            "temp_stability_score": 50, "environment_score": 50,
-            "recovery_score": 0, "harmony_score": 50,
-            "confidence": 0
+            "index": 50,
+            "level": "No Data",
+            "color": "#9E9E9E",
+            "brain_calm_score": 50,
+            "heart_rhythm_score": 50,
+            "temp_stability_score": 50,
+            "environment_score": 50,
+            "recovery_score": 0,
+            "harmony_score": 50,
+            "confidence": 0,
         }
 
-    eeg_vals, ecg_vals, temp_vals, light_vals, noise_vals, harmonies = [], [], [], [], [], []
+    eeg_vals, ecg_vals, temp_vals, light_vals, noise_vals, harmonies = (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
 
-    for (eeg, ecg, temp, light, noise, _) in rows:
+    for eeg, ecg, temp, light, noise, _ in rows:
         eeg_vals.append(eeg or 0.0)
         ecg_vals.append(ecg or 0.0)
         temp_vals.append(temp or 0.0)
@@ -1065,15 +1113,21 @@ def compute_ashwin_index_v1(rows):
     except:
         stability_pct = 0
 
-    recovery_score = round(max(0, min(improvement_pct * 0.6 + stability_pct * 0.4, 100)), 2)
+    recovery_score = round(
+        max(0, min(improvement_pct * 0.6 + stability_pct * 0.4, 100)), 2
+    )
 
     # 6. Harmony Score
     harmony_score = round(mean(harmonies), 2)
 
     # 7. Composite
     weights = {
-        "brain": 0.25, "heart": 0.20, "temp": 0.15,
-        "env": 0.10, "recovery": 0.15, "harmony": 0.15
+        "brain": 0.25,
+        "heart": 0.20,
+        "temp": 0.15,
+        "env": 0.10,
+        "recovery": 0.15,
+        "harmony": 0.15,
     }
 
     comp = {
@@ -1109,11 +1163,14 @@ def compute_ashwin_index_v1(rows):
         "environment_score": environment_score,
         "recovery_score": recovery_score,
         "harmony_score": harmony_score,
-        "confidence": round(confidence, 2)
+        "confidence": round(confidence, 2),
     }
+
+
 # -------------------------------------------------
 # ---------- SESSION HELPERS ----------
 # -------------------------------------------------
+
 
 def start_autosession(uid: int, label: str = "Auto Session"):
     conn = get_conn()
@@ -1168,10 +1225,13 @@ def end_session(sid: int):
     c.execute("UPDATE sessions SET end_time=? WHERE id=?", (ts, sid))
     conn.commit()
     conn.close()
+
+
 # --------------------------------------------
 # SLEEP SESSION MANAGEMENT
 # --------------------------------------------
 sleep_sessions = {}  # temp in-memory cache
+
 
 @app.post("/sleep/start/{user_id}")
 def start_sleep_session(user_id: int):
@@ -1187,11 +1247,7 @@ def start_sleep_session(user_id: int):
         "start": now,
     }
 
-    return {
-        "status": "sleep_started",
-        "session_id": sid,
-        "start_time": now
-    }
+    return {"status": "sleep_started", "session_id": sid, "start_time": now}
 
 
 @app.post("/sleep/end/{user_id}")
@@ -1210,16 +1266,23 @@ def end_sleep_session(user_id: int):
         "status": "sleep_ended",
         "session_id": sid,
         "start_time": start_time,
-        "end_time": now
+        "end_time": now,
     }
+
 
 # -------------------------------------------------
 # ---------- EVENTS ----------
 # -------------------------------------------------
 
+
 def detect_unresponsive(d: SensorReadingIn):
     """Flag extended flat activity (wellness context only)."""
-    if (d.eeg in [None, 0]) and (d.ecg in [None, 0]) and safe(d.noise) < 10 and safe(d.light) < 10:
+    if (
+        (d.eeg in [None, 0])
+        and (d.ecg in [None, 0])
+        and safe(d.noise) < 10
+        and safe(d.light) < 10
+    ):
         return {
             "event_type": "potential_unresponsive",
             "confidence": 0.78,
@@ -1231,6 +1294,7 @@ def detect_unresponsive(d: SensorReadingIn):
 # -------------------------------------------------
 # ---------- USERS ----------
 # -------------------------------------------------
+
 
 @app.post("/users/signup")
 def signup(p: UserSignup):
@@ -1296,9 +1360,7 @@ def list_users():
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute(
-        "SELECT id,name,display_name,created_at FROM users ORDER BY id ASC"
-    )
+    c.execute("SELECT id,name,display_name,created_at FROM users ORDER BY id ASC")
 
     rows = c.fetchall()
     conn.close()
@@ -1327,28 +1389,36 @@ def list_users():
 # DEVICE REGISTRATION
 # -------------------------------------------------
 
+
 @app.post("/device/register")
 def register_device(device_id: str, user_id: int):
 
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO devices (device_id, user_id)
         VALUES (?, ?)
         ON CONFLICT(device_id)
         DO UPDATE SET user_id = excluded.user_id
-    """, (device_id, user_id))
+    """,
+        (device_id, user_id),
+    )
 
     conn.commit()
     conn.close()
 
     return {"status": "device linked"}
+
+
 # -------------------------------------------------
 # ---------- SENSOR INGEST ----------
 # -------------------------------------------------
 
 from datetime import datetime, timezone
+
+
 @app.post("/ingest/raw")
 def ingest_raw(d: SensorReadingIn):
 
@@ -1360,10 +1430,7 @@ def ingest_raw(d: SensorReadingIn):
     # ----------------------------
     # 0) Resolve user from device
     # ----------------------------
-    c.execute(
-        "SELECT user_id FROM devices WHERE device_id = ?",
-        (d.device_id,)
-    )
+    c.execute("SELECT user_id FROM devices WHERE device_id = ?", (d.device_id,))
     row = c.fetchone()
 
     if not row:
@@ -1378,12 +1445,15 @@ def ingest_raw(d: SensorReadingIn):
 
     if getattr(d, "session_id", None):
         try:
-            c.execute("""
+            c.execute(
+                """
                 SELECT id
                 FROM sessions
                 WHERE id=? AND user_id=? AND end_time IS NULL
                 LIMIT 1
-            """, (int(d.session_id), user_id))
+            """,
+                (int(d.session_id), user_id),
+            )
             row = c.fetchone()
             if row:
                 sid = int(row[0])
@@ -1392,13 +1462,16 @@ def ingest_raw(d: SensorReadingIn):
 
     # (b) latest active session
     if not sid:
-        c.execute("""
+        c.execute(
+            """
             SELECT id
             FROM sessions
             WHERE user_id=? AND end_time IS NULL
             ORDER BY id DESC
             LIMIT 1
-        """, (user_id,))
+        """,
+            (user_id,),
+        )
         row = c.fetchone()
 
         if row:
@@ -1408,10 +1481,13 @@ def ingest_raw(d: SensorReadingIn):
     if not sid:
         now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
-        c.execute("""
+        c.execute(
+            """
             INSERT INTO sessions(user_id, label, start_time)
             VALUES (?, 'autosession', ?)
-        """, (user_id, now))
+        """,
+            (user_id, now),
+        )
 
         sid = c.lastrowid
 
@@ -1452,7 +1528,8 @@ def ingest_raw(d: SensorReadingIn):
     # 4) Insert reading
     # ----------------------------
 
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO readings(
             user_id,
             session_id,
@@ -1464,16 +1541,9 @@ def ingest_raw(d: SensorReadingIn):
             timestamp
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        user_id,
-        sid,
-        d.eeg,
-        d.ecg,
-        d.temperature,
-        d.light,
-        d.noise,
-        ts
-    ))
+    """,
+        (user_id, sid, d.eeg, d.ecg, d.temperature, d.light, d.noise, ts),
+    )
 
     # ----------------------------
     # 5) Event detection
@@ -1482,7 +1552,8 @@ def ingest_raw(d: SensorReadingIn):
     ev = detect_unresponsive(d)
 
     if ev:
-        c.execute("""
+        c.execute(
+            """
             INSERT INTO life_events(
                 user_id,
                 event_type,
@@ -1491,22 +1562,15 @@ def ingest_raw(d: SensorReadingIn):
                 created_at
             )
             VALUES (?, ?, ?, ?, ?)
-        """, (
-            user_id,
-            ev["event_type"],
-            ev["confidence"],
-            ev["note"],
-            ts
-        ))
+        """,
+            (user_id, ev["event_type"], ev["confidence"], ev["note"], ts),
+        )
 
     conn.commit()
     conn.close()
 
-    return {
-        "status": "ok",
-        "session_id": sid,
-        "timestamp": ts
-    }
+    return {"status": "ok", "session_id": sid, "timestamp": ts}
+
 
 # -------------------------------------------------
 # ---------- BASIC REPORT (JSON API) ----------
@@ -1573,7 +1637,6 @@ def report_html(uid: int, range_q: str = "all"):
     return RedirectResponse(url=f"/board?user={uid}&range={range_q}")
 
 
-
 @app.get("/report_html")
 def report_html_auto(range_q: str = "all"):
     ...
@@ -1590,6 +1653,7 @@ def report_html_auto(range_q: str = "all"):
 # -------------------------------------------------
 # ---------- BASELINE ----------
 # -------------------------------------------------
+
 
 @app.post("/baseline")
 def save_baseline(p: BaselineProfile):
@@ -1612,6 +1676,7 @@ def save_baseline(p: BaselineProfile):
 # -------------------------------------------------
 # ---------- ENVIRONMENT SNAPSHOT ----------
 # -------------------------------------------------
+
 
 @app.get("/envsync/report/{uid}")
 def envsync(uid: int):
@@ -1672,6 +1737,7 @@ LIMIT 200
 # ---------- PREDICT SUMMARY (Home Tab) ----------
 # -------------------------------------------------
 
+
 @app.get("/predict/summary/{uid}")
 def predict_summary(uid: int):
     conn = get_conn()
@@ -1720,6 +1786,8 @@ def predict_summary(uid: int):
         "trend": trend,
         "confidence": round(min(0.9, len(harmonies) / 60), 2),
     }
+
+
 # -------------------------------------------------
 # INSIGHTS ENDPOINT - Daily / Weekly (SQLite)
 # -------------------------------------------------
@@ -1733,34 +1801,44 @@ def insights(uid: int, days: int = 7):
         day = (today_et - timedelta(days=i)).isoformat()  # YYYY-MM-DD
         rec = compute_daily_index_sqlite(uid, day)
         if rec:
-            sessions.append({
-                "date": day,
-                "index": rec["index_value"],
-                "level": rec["level"],
-                "color": rec["color"],
-                "brain_calm_score": rec["brain_score"],
-                "heart_rhythm_score": rec["heart_score"],
-                "temp_stability_score": rec["temp_score"],
-                "environment_score": rec["env_score"],
-                "recovery_score": rec["recovery_score"],
-                "harmony_score": rec["harmony_score"],
-                "confidence": rec["confidence"],
-            })
+            sessions.append(
+                {
+                    "date": day,
+                    "index": rec["index_value"],
+                    "level": rec["level"],
+                    "color": rec["color"],
+                    "brain_calm_score": rec["brain_score"],
+                    "heart_rhythm_score": rec["heart_score"],
+                    "temp_stability_score": rec["temp_score"],
+                    "environment_score": rec["env_score"],
+                    "recovery_score": rec["recovery_score"],
+                    "harmony_score": rec["harmony_score"],
+                    "confidence": rec["confidence"],
+                }
+            )
 
     # keep compatibility if you still want quick numbers
     daily = sessions[-1]["index"] if sessions else None
-    weekly = round(sum(s["index"] for s in sessions[-7:]) / len(sessions[-7:]), 2) if sessions else None
-    monthly = round(sum(s["index"] for s in sessions[-30:]) / len(sessions[-30:]), 2) if sessions else None
+    weekly = (
+        round(sum(s["index"] for s in sessions[-7:]) / len(sessions[-7:]), 2)
+        if sessions
+        else None
+    )
+    monthly = (
+        round(sum(s["index"] for s in sessions[-30:]) / len(sessions[-30:]), 2)
+        if sessions
+        else None
+    )
 
     return {
         "user_id": uid,
         "daily": daily,
         "weekly": weekly,
         "monthly": monthly,
-        "sessions": sessions
+        "sessions": sessions,
     }
 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+
 # -------------------------------------------------
 # ---------- NEW: ASHWIN INDEX v1.0 ENDPOINT ----------
 # -------------------------------------------------
@@ -1768,6 +1846,7 @@ def insights(uid: int, days: int = 7):
 # ADD-ON BLOCK #2 - PASTE NEAR YOUR OTHER ROUTES
 # (e.g., next to /ashwin/index/{uid} or similar user endpoints)
 # =========================================================
+
 
 @app.get("/drift/{uid}")
 def drift(uid: int):
@@ -1785,7 +1864,9 @@ def drift(uid: int):
     rows = c.fetchall()
     conn.close()
 
-    times = [parse_iso_to_et(r[5]) for r in rows]  # uses your existing parse_iso_to_et()
+    times = [
+        parse_iso_to_et(r[5]) for r in rows
+    ]  # uses your existing parse_iso_to_et()
     drift_vals = compute_drift_series(rows)
     coh_vals = compute_coherence_series(rows)
     res_vals = compute_resonance_series(rows)
@@ -1796,6 +1877,7 @@ def drift(uid: int):
         "coherence": coh_vals,
         "resonance": res_vals,
     }
+
 
 @app.get("/ashwin/index/{uid}")
 def get_ashwin_index(uid: int):
@@ -1818,6 +1900,8 @@ def get_ashwin_index(uid: int):
 
     result = compute_ashwin_index_v1(rows)
     return result
+
+
 # -------------------------------------------------
 # ---------- DASHBOARD HELPERS & BOARD ----------
 # -------------------------------------------------
@@ -1826,6 +1910,7 @@ def get_ashwin_index(uid: int):
 #   # ---------- DASHBOARD HELPERS & BOARD ----------
 # =========================================================
 
+
 def downsample_and_smooth(times, harmonies, eeg_vals, ecg_vals, step=5, window=20):
     """
     Downsample arrays by `step` and apply simple moving average smoothing (window size `window`).
@@ -1833,12 +1918,12 @@ def downsample_and_smooth(times, harmonies, eeg_vals, ecg_vals, step=5, window=2
     """
     if not times:
         return [], [], [], []
-  
+
     # --- downsample ---
-    times_ds = times[::max(1, step)]
-    h_ds = harmonies[::max(1, step)]
-    eeg_ds = eeg_vals[::max(1, step)]
-    ecg_ds = ecg_vals[::max(1, step)]
+    times_ds = times[:: max(1, step)]
+    h_ds = harmonies[:: max(1, step)]
+    eeg_ds = eeg_vals[:: max(1, step)]
+    ecg_ds = ecg_vals[:: max(1, step)]
 
     def _sma(xs, w):
         if not xs:
@@ -1847,7 +1932,7 @@ def downsample_and_smooth(times, harmonies, eeg_vals, ecg_vals, step=5, window=2
         out = []
         for i in range(len(xs)):
             start = max(0, i - w + 1)
-            window_x = xs[start:i+1]
+            window_x = xs[start : i + 1]
             out.append(round(sum(window_x) / len(window_x), 2))
         return out
 
@@ -1866,6 +1951,7 @@ def clamp(v, lo=0.0, hi=100.0):
         return lo
     return max(lo, min(hi, v))
 
+
 def rolling_std(xs, w=8):
     # simple rolling stdev (population)
     if not xs:
@@ -1873,12 +1959,15 @@ def rolling_std(xs, w=8):
     out = []
     for i in range(len(xs)):
         start = max(0, i - w + 1)
-        window = xs[start:i+1]
+        window = xs[start : i + 1]
         if len(window) < 2:
             out.append(0.0)
         else:
-            out.append(pstdev(window))  # uses your existing: from statistics import pstdev
+            out.append(
+                pstdev(window)
+            )  # uses your existing: from statistics import pstdev
     return out
+
 
 def compute_drift_series(rows):
     """
@@ -1888,7 +1977,9 @@ def compute_drift_series(rows):
     if not rows:
         return []
 
-    harmonies = [calc_harmony(r[0], r[1], r[2]) for r in rows]  # uses your existing calc_harmony
+    harmonies = [
+        calc_harmony(r[0], r[1], r[2]) for r in rows
+    ]  # uses your existing calc_harmony
     step = [0.0]
     for i in range(1, len(harmonies)):
         step.append(abs(harmonies[i] - harmonies[i - 1]))
@@ -1913,12 +2004,13 @@ def compute_coherence_series(rows):
     """
     out = []
     for r in rows:
-        eeg = safe(r[0])          # uses your existing safe()
+        eeg = safe(r[0])  # uses your existing safe()
         ecg = safe(r[1])
         denom = max(1e-6, (eeg + ecg))
         balance = 1.0 - (abs(eeg - ecg) / denom)  # 1 = balanced, 0 = dominated
         out.append(round(clamp(balance * 100), 2))
     return out
+
 
 def compute_resonance_series(rows):
     """
@@ -1929,7 +2021,9 @@ def compute_resonance_series(rows):
         eeg = safe(r[0])
         ecg = safe(r[1])
         temp = safe(r[2], 98.6)
-        envelope.append((eeg * 0.5 + ecg * 0.5) * (1.0 - min(0.15, abs(98.6 - temp) / 100)))
+        envelope.append(
+            (eeg * 0.5 + ecg * 0.5) * (1.0 - min(0.15, abs(98.6 - temp) / 100))
+        )
 
     vol = rolling_std(envelope, w=10)
     raw = []
@@ -1945,9 +2039,11 @@ def compute_resonance_series(rows):
     res = [((v - rmin) / (rmax - rmin)) * 100 for v in raw]
     return [round(clamp(x), 2) for x in res]
 
+
 # ✅ ADD THIS (RIGHT HERE)
 def zone_label(zid: str) -> str:
     return ZONE_DICT.get(zid, zid)
+
 
 def infer_zone(eeg, ecg, temp, light, noise):
     eeg = safe(eeg)
@@ -1968,6 +2064,8 @@ def infer_zone(eeg, ecg, temp, light, noise):
         zid, conf = "Z6", 0.45
 
     return zid, zone_label(zid), conf
+
+
 # ---------- ZONES DICTIONARY (shared) ----------
 ZONES = {
     "Z1": "Z1 - High Variability / Unstable Coupling",
@@ -1986,55 +2084,226 @@ ZONE_DICT = ZONES
 # Non-medical taxonomy: observable behavior tags
 # -----------------------------
 PATTERN_LIBRARY = {
-  # Drift / Stability vs Instability
-  "N1": {"label": "Minor Drift Oscillation", "desc": "Small deviation with rapid recovery.", "category": "drift", "type": "atomic"},
-  "N2": {"label": "Progressive Drift Ramp", "desc": "Gradual increase in instability over multiple windows.", "category": "drift", "type": "atomic"},
-  "A3": {"label": "Acute Drift Spike", "desc": "Sudden high-amplitude instability event.", "category": "drift", "type": "atomic"},
-  "A4": {"label": "Sustained Instability Spike", "desc": "High drift with delayed recovery.", "category": "drift", "type": "atomic"},
-
-  # Coherence / Alignment
-  "C1": {"label": "Micro-Coherence Dip", "desc": "Brief alignment loss with quick restoration.", "category": "coherence", "type": "atomic"},
-  "C2": {"label": "Coherence Drop", "desc": "Sustained loss of synchronization.", "category": "coherence", "type": "atomic"},
-  "C3": {"label": "Fragmented Coherence", "desc": "Repeated dips without full recovery.", "category": "coherence", "type": "atomic"},
-  "C4": {"label": "Coherence Collapse", "desc": "Near-total loss of alignment.", "category": "coherence", "type": "atomic"},
-
-  # Resonance / Envelope
-  "R1": {"label": "Resonance Plateau", "desc": "Stable dominant rhythm with low variance.", "category": "resonance", "type": "atomic"},
-  "R2": {"label": "Resonance Drift", "desc": "Gradual weakening of dominant rhythm.", "category": "resonance", "type": "atomic"},
-  "R3": {"label": "Resonance Break", "desc": "Sudden loss of dominant rhythm.", "category": "resonance", "type": "atomic"},
-  "R4": {"label": "Resonance Lock", "desc": "Strong stable envelope across windows.", "category": "resonance", "type": "atomic"},
-
-  # Burst / Variability
-  "BB1": {"label": "Single Microburst", "desc": "One isolated high-variability spike.", "category": "burst", "type": "atomic"},
-  "BB2": {"label": "Burst Pair", "desc": "Two bursts within a short interval.", "category": "burst", "type": "atomic"},
-  "BB3": {"label": "Burst Train", "desc": "Multiple bursts in succession.", "category": "burst", "type": "atomic"},
-  "BB4": {"label": "Repeating Microburst Cluster", "desc": "Rapid repeating variability spikes.", "category": "burst", "type": "atomic"},
-
-  # Thermal / Environmental Coupling
-  "T1": {"label": "Thermal Drift", "desc": "Gradual thermal deviation correlated with instability.", "category": "thermal", "type": "atomic"},
-  "T2": {"label": "Thermal Instability Spike", "desc": "Sharp thermal deviation with volatility.", "category": "thermal", "type": "atomic"},
-  "T3": {"label": "Thermal-Flow Shift", "desc": "Temperature change coinciding with recovery/collapse.", "category": "thermal", "type": "atomic"},
-
-  # Recovery / Harmonization
-  "H1": {"label": "Partial Recovery", "desc": "Drift decreases but coherence remains low.", "category": "recovery", "type": "atomic"},
-  "H2": {"label": "Harmonization Recovery", "desc": "Drift normalizes and coherence improves.", "category": "recovery", "type": "atomic"},
+    # Drift / Stability vs Instability
+    "N1": {
+        "label": "Minor Drift Oscillation",
+        "desc": "Small deviation with rapid recovery.",
+        "category": "drift",
+        "type": "atomic",
+    },
+    "N2": {
+        "label": "Progressive Drift Ramp",
+        "desc": "Gradual increase in instability over multiple windows.",
+        "category": "drift",
+        "type": "atomic",
+    },
+    "A3": {
+        "label": "Acute Drift Spike",
+        "desc": "Sudden high-amplitude instability event.",
+        "category": "drift",
+        "type": "atomic",
+    },
+    "A4": {
+        "label": "Sustained Instability Spike",
+        "desc": "High drift with delayed recovery.",
+        "category": "drift",
+        "type": "atomic",
+    },
+    # Coherence / Alignment
+    "C1": {
+        "label": "Micro-Coherence Dip",
+        "desc": "Brief alignment loss with quick restoration.",
+        "category": "coherence",
+        "type": "atomic",
+    },
+    "C2": {
+        "label": "Coherence Drop",
+        "desc": "Sustained loss of synchronization.",
+        "category": "coherence",
+        "type": "atomic",
+    },
+    "C3": {
+        "label": "Fragmented Coherence",
+        "desc": "Repeated dips without full recovery.",
+        "category": "coherence",
+        "type": "atomic",
+    },
+    "C4": {
+        "label": "Coherence Collapse",
+        "desc": "Near-total loss of alignment.",
+        "category": "coherence",
+        "type": "atomic",
+    },
+    # Resonance / Envelope
+    "R1": {
+        "label": "Resonance Plateau",
+        "desc": "Stable dominant rhythm with low variance.",
+        "category": "resonance",
+        "type": "atomic",
+    },
+    "R2": {
+        "label": "Resonance Drift",
+        "desc": "Gradual weakening of dominant rhythm.",
+        "category": "resonance",
+        "type": "atomic",
+    },
+    "R3": {
+        "label": "Resonance Break",
+        "desc": "Sudden loss of dominant rhythm.",
+        "category": "resonance",
+        "type": "atomic",
+    },
+    "R4": {
+        "label": "Resonance Lock",
+        "desc": "Strong stable envelope across windows.",
+        "category": "resonance",
+        "type": "atomic",
+    },
+    # Burst / Variability
+    "BB1": {
+        "label": "Single Microburst",
+        "desc": "One isolated high-variability spike.",
+        "category": "burst",
+        "type": "atomic",
+    },
+    "BB2": {
+        "label": "Burst Pair",
+        "desc": "Two bursts within a short interval.",
+        "category": "burst",
+        "type": "atomic",
+    },
+    "BB3": {
+        "label": "Burst Train",
+        "desc": "Multiple bursts in succession.",
+        "category": "burst",
+        "type": "atomic",
+    },
+    "BB4": {
+        "label": "Repeating Microburst Cluster",
+        "desc": "Rapid repeating variability spikes.",
+        "category": "burst",
+        "type": "atomic",
+    },
+    # Thermal / Environmental Coupling
+    "T1": {
+        "label": "Thermal Drift",
+        "desc": "Gradual thermal deviation correlated with instability.",
+        "category": "thermal",
+        "type": "atomic",
+    },
+    "T2": {
+        "label": "Thermal Instability Spike",
+        "desc": "Sharp thermal deviation with volatility.",
+        "category": "thermal",
+        "type": "atomic",
+    },
+    "T3": {
+        "label": "Thermal-Flow Shift",
+        "desc": "Temperature change coinciding with recovery/collapse.",
+        "category": "thermal",
+        "type": "atomic",
+    },
+    # Recovery / Harmonization
+    "H1": {
+        "label": "Partial Recovery",
+        "desc": "Drift decreases but coherence remains low.",
+        "category": "recovery",
+        "type": "atomic",
+    },
+    "H2": {
+        "label": "Harmonization Recovery",
+        "desc": "Drift normalizes and coherence improves.",
+        "category": "recovery",
+        "type": "atomic",
+    },
 }
 # -----------------------------
 # DERIVED PATTERNS - V1 (10 STARTERS)
 # Built from atomic combos/sequences (still non-medical)
 # -----------------------------
 DERIVED_PATTERNS = {
-  "D1": {"label": "Sustained Drift + Slow Return", "desc": "N2 followed by R3/H1 patterning.", "category": "derived", "type": "derived", "requires": ["N2","R3"], "window_min": 60},
-  "D2": {"label": "Drift + Coherence Collapse", "desc": "High drift with coherence collapse signature.", "category": "derived", "type": "derived", "requires": ["A4","C4"], "window_min": 10},
-  "D3": {"label": "Repeating Microbursts", "desc": "BB4 recurrence within a short span.", "category": "derived", "type": "derived", "requires": ["BB4"], "window_min": 30},
-  "D4": {"label": "Envelope Weakening Under Load", "desc": "N2 with resonance drift/break.", "category": "derived", "type": "derived", "requires": ["N2","R2"], "window_min": 30},
-  "D5": {"label": "Fragmented Alignment Loop", "desc": "C3 recurrence with bursts.", "category": "derived", "type": "derived", "requires": ["C3","BB1"], "window_min": 30},
-  "D6": {"label": "Thermal Coupled Instability", "desc": "Instability coincides with thermal deviation.", "category": "derived", "type": "derived", "requires": ["T2","A3"], "window_min": 20},
-  "D7": {"label": "Resonance Lock + Recovery", "desc": "R4 with H2 proximity.", "category": "derived", "type": "derived", "requires": ["R4","H2"], "window_min": 30},
-  "D8": {"label": "Unstable But Aligned", "desc": "High drift but coherence not collapsed (edge state).", "category": "derived", "type": "derived", "requires": ["A3","C1"], "window_min": 10},
-  "D9": {"label": "Depletion Cascade", "desc": "Coherence drop + resonance drift/break.", "category": "derived", "type": "derived", "requires": ["C2","R2"], "window_min": 45},
-  "D10":{"label": "Recovery Attempt Fails", "desc": "H1 repeats without H2 follow-through.", "category": "derived", "type": "derived", "requires": ["H1"], "window_min": 90},
+    "D1": {
+        "label": "Sustained Drift + Slow Return",
+        "desc": "N2 followed by R3/H1 patterning.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["N2", "R3"],
+        "window_min": 60,
+    },
+    "D2": {
+        "label": "Drift + Coherence Collapse",
+        "desc": "High drift with coherence collapse signature.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["A4", "C4"],
+        "window_min": 10,
+    },
+    "D3": {
+        "label": "Repeating Microbursts",
+        "desc": "BB4 recurrence within a short span.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["BB4"],
+        "window_min": 30,
+    },
+    "D4": {
+        "label": "Envelope Weakening Under Load",
+        "desc": "N2 with resonance drift/break.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["N2", "R2"],
+        "window_min": 30,
+    },
+    "D5": {
+        "label": "Fragmented Alignment Loop",
+        "desc": "C3 recurrence with bursts.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["C3", "BB1"],
+        "window_min": 30,
+    },
+    "D6": {
+        "label": "Thermal Coupled Instability",
+        "desc": "Instability coincides with thermal deviation.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["T2", "A3"],
+        "window_min": 20,
+    },
+    "D7": {
+        "label": "Resonance Lock + Recovery",
+        "desc": "R4 with H2 proximity.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["R4", "H2"],
+        "window_min": 30,
+    },
+    "D8": {
+        "label": "Unstable But Aligned",
+        "desc": "High drift but coherence not collapsed (edge state).",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["A3", "C1"],
+        "window_min": 10,
+    },
+    "D9": {
+        "label": "Depletion Cascade",
+        "desc": "Coherence drop + resonance drift/break.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["C2", "R2"],
+        "window_min": 45,
+    },
+    "D10": {
+        "label": "Recovery Attempt Fails",
+        "desc": "H1 repeats without H2 follow-through.",
+        "category": "derived",
+        "type": "derived",
+        "requires": ["H1"],
+        "window_min": 90,
+    },
 }
+
 
 def pattern_meta(pid: str) -> dict:
     if pid in PATTERN_LIBRARY:
@@ -2042,37 +2311,49 @@ def pattern_meta(pid: str) -> dict:
     if pid in DERIVED_PATTERNS:
         return DERIVED_PATTERNS[pid]
     return {"label": pid, "desc": "", "category": "unknown", "type": "unknown"}
+
+
 # -----------------------------
 # PROFILE HYPOTHESIS REGISTRY (RESEARCH-ONLY)
 # -----------------------------
 PROFILE_HYPOTHESIS_REGISTRY = {
-  "registry_version": "1.0",
-  "disclaimer": "Research-only hypothesis registry. Correlational. Not diagnostic. Not intended for medical use.",
-  "profiles": [
-    {
-      "profile_id": "PH-MIG-001",
-      "label_public": "Profile PH-MIG-001",
-      "label_internal": "Migraine-Associated Pattern Profile (Hypothesis)",
-      "visibility": "research_only",
-      "status": "hypothesis",
-      "associated_condition": "migraine",
-      "cluster_rule": {"patterns": ["A4","BB4","C2"], "window_minutes": [30,120], "min_hits": 2},
-      "requires_user_tags": ["migraine_episode"],
-      "notes": "Activate only after enough tagged events; keep off consumer UI."
-    },
-    {
-      "profile_id": "PH-ALS-001",
-      "label_public": "Profile PH-ALS-001",
-      "label_internal": "ALS-Associated Exploratory Profile (Hypothesis)",
-      "visibility": "research_only",
-      "status": "hypothesis",
-      "associated_condition": "als",
-      "cluster_rule": {"patterns": ["R2","C4","N2"], "window_minutes": [60,720], "min_hits": 2},
-      "requires_user_tags": ["weakness_episode","cramp_episode"],
-      "notes": "Exploratory. Requires serious validation. Never consumer-facing."
-    }
-  ]
+    "registry_version": "1.0",
+    "disclaimer": "Research-only hypothesis registry. Correlational. Not diagnostic. Not intended for medical use.",
+    "profiles": [
+        {
+            "profile_id": "PH-MIG-001",
+            "label_public": "Profile PH-MIG-001",
+            "label_internal": "Migraine-Associated Pattern Profile (Hypothesis)",
+            "visibility": "research_only",
+            "status": "hypothesis",
+            "associated_condition": "migraine",
+            "cluster_rule": {
+                "patterns": ["A4", "BB4", "C2"],
+                "window_minutes": [30, 120],
+                "min_hits": 2,
+            },
+            "requires_user_tags": ["migraine_episode"],
+            "notes": "Activate only after enough tagged events; keep off consumer UI.",
+        },
+        {
+            "profile_id": "PH-ALS-001",
+            "label_public": "Profile PH-ALS-001",
+            "label_internal": "ALS-Associated Exploratory Profile (Hypothesis)",
+            "visibility": "research_only",
+            "status": "hypothesis",
+            "associated_condition": "als",
+            "cluster_rule": {
+                "patterns": ["R2", "C4", "N2"],
+                "window_minutes": [60, 720],
+                "min_hits": 2,
+            },
+            "requires_user_tags": ["weakness_episode", "cramp_episode"],
+            "notes": "Exploratory. Requires serious validation. Never consumer-facing.",
+        },
+    ],
 }
+
+
 def _fetch_recent_rows_for_user(uid: int, limit: int = 2000):
     """
     Returns rows ordered ASC by time:
@@ -2094,9 +2375,12 @@ def _fetch_recent_rows_for_user(uid: int, limit: int = 2000):
     conn.close()
     rows.reverse()
     return rows
+
+
 def _et_day_string(dt: datetime | None = None) -> str:
     dt = dt or datetime.now(ET)
     return dt.date().isoformat()  # YYYY-MM-DD
+
 
 def _fetch_rows_for_user_day(uid: int, day_yyyy_mm_dd: str):
 
@@ -2107,7 +2391,7 @@ def _fetch_rows_for_user_day(uid: int, day_yyyy_mm_dd: str):
     c = conn.cursor()
 
     c.execute(
-    """
+        """
     SELECT eeg, ecg, temperature, light, noise, timestamp
     FROM readings
     WHERE user_id = ?
@@ -2115,18 +2399,21 @@ def _fetch_rows_for_user_day(uid: int, day_yyyy_mm_dd: str):
     AND timestamp <= ?
     ORDER BY timestamp ASC
     """,
-    (uid, start, end),
+        (uid, start, end),
     )
 
     rows = c.fetchall()
     conn.close()
     return rows
 
+
 def compute_daily_index_sqlite(uid: int, day_yyyy_mm_dd: str):
     # 1) cache check
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT * FROM ashwin_daily WHERE user_id=? AND day=?", (uid, day_yyyy_mm_dd))
+    c.execute(
+        "SELECT * FROM ashwin_daily WHERE user_id=? AND day=?", (uid, day_yyyy_mm_dd)
+    )
     cached = c.fetchone()
     conn.close()
     if cached:
@@ -2166,9 +2453,19 @@ def compute_daily_index_sqlite(uid: int, day_yyyy_mm_dd: str):
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
-            rec["user_id"], rec["day"], rec["index_value"], rec["level"], rec["color"],
-            rec["brain_score"], rec["heart_score"], rec["temp_score"], rec["env_score"],
-            rec["recovery_score"], rec["harmony_score"], rec["confidence"], rec["created_at"],
+            rec["user_id"],
+            rec["day"],
+            rec["index_value"],
+            rec["level"],
+            rec["color"],
+            rec["brain_score"],
+            rec["heart_score"],
+            rec["temp_score"],
+            rec["env_score"],
+            rec["recovery_score"],
+            rec["harmony_score"],
+            rec["confidence"],
+            rec["created_at"],
         ),
     )
     conn.commit()
@@ -2193,22 +2490,25 @@ def evaluate_profile_hypotheses_from_events(events: list[dict]) -> list[dict]:
 
         hit_count = sum(1 for x in ids if x in pats)
 
-        results.append({
-            "profile_id": prof.get("profile_id"),
-            "label_public": prof.get("label_public"),
-            "visibility": prof.get("visibility", "research_only"),
-            "status": prof.get("status", "hypothesis"),
-            "associated_condition": prof.get("associated_condition"),
-            "hit_count": hit_count,
-            "min_hits": min_hits,
-            "patterns": list(pats),
-            "window_minutes": rule.get("window_minutes", []),
-            "requires_user_tags": prof.get("requires_user_tags", []),
-            "notes": prof.get("notes", ""),
-            "disclaimer": PROFILE_HYPOTHESIS_REGISTRY.get("disclaimer", ""),
-            "hit": hit_count >= min_hits,
-        })
+        results.append(
+            {
+                "profile_id": prof.get("profile_id"),
+                "label_public": prof.get("label_public"),
+                "visibility": prof.get("visibility", "research_only"),
+                "status": prof.get("status", "hypothesis"),
+                "associated_condition": prof.get("associated_condition"),
+                "hit_count": hit_count,
+                "min_hits": min_hits,
+                "patterns": list(pats),
+                "window_minutes": rule.get("window_minutes", []),
+                "requires_user_tags": prof.get("requires_user_tags", []),
+                "notes": prof.get("notes", ""),
+                "disclaimer": PROFILE_HYPOTHESIS_REGISTRY.get("disclaimer", ""),
+                "hit": hit_count >= min_hits,
+            }
+        )
     return results
+
 
 def aggregate_zone_pattern_profile(points: list[dict], events: list[dict]) -> dict:
     # zone -> pattern counts
@@ -2233,13 +2533,17 @@ def aggregate_zone_pattern_profile(points: list[dict], events: list[dict]) -> di
             pid = e.get("pattern_id") or e.get("id")
             if pid in rule_pats:
                 zid = e.get("zone_id") or e.get("zone") or "Z?"
-                profile_zone_counts[prof_id][zid] = profile_zone_counts[prof_id].get(zid, 0) + 1
+                profile_zone_counts[prof_id][zid] = (
+                    profile_zone_counts[prof_id].get(zid, 0) + 1
+                )
 
     return {
         "zone_pattern_counts": zone_pattern_counts,
         "hypotheses": hypotheses,
         "profile_zone_counts": profile_zone_counts,
     }
+
+
 def weather_radar_frames(points: list[dict], events: list[dict], frame_step: int = 5):
     """
     Builds lightweight frames for a radar UI.
@@ -2268,8 +2572,11 @@ def weather_radar_frames(points: list[dict], events: list[dict], frame_step: int
         # A simple intensity composite you can tune later:
         # Higher drift = more “storm”; lower coherence/resonance = more “storm”
         intensity = round(
-            min(100.0, max(0.0, (drift * 0.55) + ((100 - coh) * 0.25) + ((100 - res) * 0.20))),
-            2
+            min(
+                100.0,
+                max(0.0, (drift * 0.55) + ((100 - coh) * 0.25) + ((100 - res) * 0.20)),
+            ),
+            2,
         )
 
         zone_payload = {
@@ -2281,7 +2588,7 @@ def weather_radar_frames(points: list[dict], events: list[dict], frame_step: int
             "drift": drift,
             "coherence": coh,
             "resonance": res,
-            "top_patterns": []
+            "top_patterns": [],
         }
 
         # attach up to 3 top patterns at this timestamp
@@ -2292,21 +2599,27 @@ def weather_radar_frames(points: list[dict], events: list[dict], frame_step: int
                 {
                     "pattern_id": e.get("pattern_id") or e.get("id"),
                     "label": e.get("label", ""),
-                    "desc": e.get("desc", "")
+                    "desc": e.get("desc", ""),
                 }
                 for e in evs[:3]
             ]
 
-        frames.append({
-            "t": t,
-            "zones": [zone_payload],  # v1: current dominant zone only; later: all zones per frame
-        })
+        frames.append(
+            {
+                "t": t,
+                "zones": [
+                    zone_payload
+                ],  # v1: current dominant zone only; later: all zones per frame
+            }
+        )
 
     return frames
+
 
 # -------------------------------------------------
 # ---------- PATTERN + ZONE EVENT TAGGING ----------
 # -------------------------------------------------
+
 
 def detect_atomic_patterns_for_point(
     drift: float,
@@ -2325,13 +2638,13 @@ def detect_atomic_patterns_for_point(
     # Atomic: Drift patterns
     # -----------------------
     if drift >= 85:
-        hits.append("A4")   # sustained instability class (heuristic)
+        hits.append("A4")  # sustained instability class (heuristic)
     elif drift >= 70:
-        hits.append("A3")   # acute spike class (heuristic)
+        hits.append("A3")  # acute spike class (heuristic)
     elif drift >= 55:
-        hits.append("N2")   # ramp-ish / building load proxy
+        hits.append("N2")  # ramp-ish / building load proxy
     elif drift >= 25:
-        hits.append("N1")   # minor oscillation proxy
+        hits.append("N1")  # minor oscillation proxy
 
     # ---------------------------
     # Atomic: Coherence patterns
@@ -2395,6 +2708,7 @@ def detect_atomic_patterns_for_point(
 
     return out
 
+
 def build_live_points_and_events(rows):
     """
     rows = [(eeg, ecg, temp, light, noise, ts), ...]
@@ -2407,9 +2721,9 @@ def build_live_points_and_events(rows):
 
     # series
     drift_s = compute_drift_series(rows)
-    coh_s   = compute_coherence_series(rows)
-    res_s   = compute_resonance_series(rows)
-    harm_s  = [calc_harmony(r[0], r[1], r[2]) for r in rows]
+    coh_s = compute_coherence_series(rows)
+    res_s = compute_resonance_series(rows)
+    harm_s = [calc_harmony(r[0], r[1], r[2]) for r in rows]
 
     events = []
     points = []
@@ -2421,25 +2735,43 @@ def build_live_points_and_events(rows):
     # Include derived tags near the top so they can surface.
     priority = [
         # Derived (sentences)
-        "D2", "D4", "D9", "D5", "D1", "D3", "D6", "D7", "D8", "D10",
-
+        "D2",
+        "D4",
+        "D9",
+        "D5",
+        "D1",
+        "D3",
+        "D6",
+        "D7",
+        "D8",
+        "D10",
         # Drift / instability
-        "A4", "A3", "N2", "N1",
-
+        "A4",
+        "A3",
+        "N2",
+        "N1",
         # Coherence
-        "C4", "C3", "C2", "C1",
-
+        "C4",
+        "C3",
+        "C2",
+        "C1",
         # Resonance
-        "R3", "R2", "R4", "R1",
-
+        "R3",
+        "R2",
+        "R4",
+        "R1",
         # Bursts
-        "BB4", "BB3", "BB2", "BB1",
-
+        "BB4",
+        "BB3",
+        "BB2",
+        "BB1",
         # Thermal
-        "T2", "T3", "T1",
-
+        "T2",
+        "T3",
+        "T1",
         # Recovery
-        "H2", "H1",
+        "H2",
+        "H1",
     ]
 
     # Faster lookup than priority.index() in a loop
@@ -2477,22 +2809,22 @@ def build_live_points_and_events(rows):
         # zone per-point (your existing infer_zone)
         z_id, z_label, z_conf = infer_zone(eeg, ecg, temp, light, noise)
 
-        points.append({
-            "t": str(ts),
-            "harmony": round(h, 2),
-            "drift": round(d, 2),
-            "coherence": round(c, 2),
-            "resonance": round(r, 2),
-            "zone_id": z_id,
-            "zone_label": z_label,
-            "zone_conf": round(float(z_conf), 2),
-        })
+        points.append(
+            {
+                "t": str(ts),
+                "harmony": round(h, 2),
+                "drift": round(d, 2),
+                "coherence": round(c, 2),
+                "resonance": round(r, 2),
+                "zone_id": z_id,
+                "zone_label": z_label,
+                "zone_conf": round(float(z_conf), 2),
+            }
+        )
 
         # pattern tags for this point (atomic + derived heuristics)
         hits = detect_atomic_patterns_for_point(
-            d, c, r,
-            prev_drift=prev_d,
-            prev_resonance=prev_r
+            d, c, r, prev_drift=prev_d, prev_resonance=prev_r
         )
         prev_d, prev_r = d, r
 
@@ -2501,15 +2833,17 @@ def build_live_points_and_events(rows):
 
         for pid in hits_sorted:
             meta = pattern_meta(pid)  # ✅ unified resolver for atomic + derived
-            events.append({
-                "t": str(ts),
-                "pattern_id": pid,
-                "label": meta.get("label", pid),
-                "desc": meta.get("desc", ""),
-                "zone_id": z_id,
-                "zone_label": z_label,
-                "zone_conf": round(float(z_conf), 2),
-            })
+            events.append(
+                {
+                    "t": str(ts),
+                    "pattern_id": pid,
+                    "label": meta.get("label", pid),
+                    "desc": meta.get("desc", ""),
+                    "zone_id": z_id,
+                    "zone_label": z_label,
+                    "zone_conf": round(float(z_conf), 2),
+                }
+            )
 
     return points, events
 
@@ -2517,6 +2851,7 @@ def build_live_points_and_events(rows):
 # -------------------------------------------------
 # ---------- RESEARCH / PARTNER ENDPOINTS ----------
 # -------------------------------------------------
+
 
 @app.get("/research/registry")
 def research_registry(x_ashwin_key: str | None = Header(default=None)):
@@ -2582,6 +2917,7 @@ def research_export_pdf(
     hyps = evaluate_profile_hypotheses_from_events(events)
 
     import io
+
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=letter)
     w, h = letter
@@ -2595,7 +2931,7 @@ def research_export_pdf(
     c.drawString(
         50,
         y,
-        "Non-diagnostic. Research-only. Correlational. Not intended for medical use."
+        "Non-diagnostic. Research-only. Correlational. Not intended for medical use.",
     )
     y -= 18
 
@@ -2616,9 +2952,7 @@ def research_export_pdf(
     for zid, pats in zpc.items():
         top = sorted(pats.items(), key=lambda x: x[1], reverse=True)[:5]
         c.drawString(
-            50,
-            y,
-            f"{zid}: " + ", ".join([f"{pid}({cnt})" for pid, cnt in top])
+            50, y, f"{zid}: " + ", ".join([f"{pid}({cnt})" for pid, cnt in top])
         )
         y -= 12
         lines += 1
@@ -2635,7 +2969,7 @@ def research_export_pdf(
         c.drawString(
             50,
             y,
-            f"{hp['profile_id']} | hits={hp['hit_count']}/{hp['min_hits']} | hit={hp['hit']}"
+            f"{hp['profile_id']} | hits={hp['hit_count']}/{hp['min_hits']} | hit={hp['hit']}",
         )
         y -= 12
         if y < 80:
@@ -2675,8 +3009,6 @@ def research_window(
     }
 
 
-
-
 # -------------------------------------------------
 # LEGACY - SINGLE-PATTERN REDUCER (DO NOT USE FOR LIVE PIPELINE)
 # -------------------------------------------------
@@ -2691,6 +3023,7 @@ def research_window(
 #
 # This function MUST NOT be called by any route.
 # -------------------------------------------------
+
 
 def classify_patterns(rows, drift_vals, coh_vals, res_vals):
     """
@@ -2726,23 +3059,27 @@ def classify_patterns(rows, drift_vals, coh_vals, res_vals):
 
         if pid:
             meta = pattern_meta(pid)
-            out.append({
-                "t": ts,
-                "id": pid,
-                "label": meta.get("label", pid),
-                "desc": meta.get("desc", ""),
-                "intensity": round(float(d), 2),
-                "zone": zid,
-                "zone_label": ZONE_DICT.get(zid, zid),
-                "zone_confidence": round(float(zconf), 2),
-                "confidence": 0.65,
-                "legacy": True,
-            })
+            out.append(
+                {
+                    "t": ts,
+                    "id": pid,
+                    "label": meta.get("label", pid),
+                    "desc": meta.get("desc", ""),
+                    "intensity": round(float(d), 2),
+                    "zone": zid,
+                    "zone_label": ZONE_DICT.get(zid, zid),
+                    "zone_confidence": round(float(zconf), 2),
+                    "confidence": 0.65,
+                    "legacy": True,
+                }
+            )
 
     return out
 
+
 # ---- BUILD TAG (top-level, once in file) ----
 BUILD_TAG = "radar-frames-ON-2026-01-05"
+
 
 @app.get("/patterns/{uid}")
 def patterns(
@@ -2767,19 +3104,21 @@ def patterns(
         rows = rows[-limit:]
 
     if not rows:
-        return JSONResponse({
-            "build_tag": BUILD_TAG,
-            "has_radar_frames": False,
-            "range": range_key,
-            "pattern_library": PATTERN_LIBRARY,
-            "zones": ZONES,
-            "counts": {"rows": 0, "points": 0, "events": 0, "frames": 0},
-            "points": [],
-            "events": [],
-            "radar_frames": [],
-            "pattern_counts": {},
-            "zone_counts": {},
-        })
+        return JSONResponse(
+            {
+                "build_tag": BUILD_TAG,
+                "has_radar_frames": False,
+                "range": range_key,
+                "pattern_library": PATTERN_LIBRARY,
+                "zones": ZONES,
+                "counts": {"rows": 0, "points": 0, "events": 0, "frames": 0},
+                "points": [],
+                "events": [],
+                "radar_frames": [],
+                "pattern_counts": {},
+                "zone_counts": {},
+            }
+        )
 
     # -------------------------------------------------
     # 2️⃣ Build patterns from SAME rows
@@ -2804,32 +3143,30 @@ def patterns(
         for p in pts
     ]
 
-    pat_counts = Counter(
-        [e.get("pattern_id") for e in events if e.get("pattern_id")]
-    )
+    pat_counts = Counter([e.get("pattern_id") for e in events if e.get("pattern_id")])
 
-    zone_counts = Counter(
-        [p.get("zone_id") for p in pts if p.get("zone_id")]
-    )
+    zone_counts = Counter([p.get("zone_id") for p in pts if p.get("zone_id")])
 
-    return JSONResponse({
-        "build_tag": BUILD_TAG,
-        "has_radar_frames": len(radar_frames) > 0,
-        "range": range_key,
-        "pattern_library": PATTERN_LIBRARY,
-        "zones": ZONES,
-        "counts": {
-            "rows": len(rows),
-            "points": len(points),
-            "events": len(events),
-            "frames": len(radar_frames),
-        },
-        "points": pts,
-        "events": events,
-        "radar_frames": radar_frames,
-        "pattern_counts": dict(pat_counts),
-        "zone_counts": dict(zone_counts),
-    })
+    return JSONResponse(
+        {
+            "build_tag": BUILD_TAG,
+            "has_radar_frames": len(radar_frames) > 0,
+            "range": range_key,
+            "pattern_library": PATTERN_LIBRARY,
+            "zones": ZONES,
+            "counts": {
+                "rows": len(rows),
+                "points": len(points),
+                "events": len(events),
+                "frames": len(radar_frames),
+            },
+            "points": pts,
+            "events": events,
+            "radar_frames": radar_frames,
+            "pattern_counts": dict(pat_counts),
+            "zone_counts": dict(zone_counts),
+        }
+    )
 
 
 # ✅ UPDATED /api/board_snapshot (adds drift + max_drift; nothing else removed)
@@ -2839,8 +3176,8 @@ def api_board_snapshot(
     range_key: str = Query("session", alias="range"),
     limit: int = Query(2000),
     start: str | None = Query(default=None),
-    end: str | None = Query(default=None),  
-    ):
+    end: str | None = Query(default=None),
+):
     """
     Live snapshot for /board (no refresh).
     Returns: KPIs + charts + patterns + zones + radar + table HTML.
@@ -2851,20 +3188,22 @@ def api_board_snapshot(
 
     # ✅ WINDOW FALLBACK LOGIC
     if not rows and range_key != "session":
-      rows = get_window_rows(user, "session")
+        rows = get_window_rows(user, "session")
 
     # Apply limit if needed
     if limit and len(rows) > limit:
-      rows = rows[-limit:]
+        rows = rows[-limit:]
 
     if not rows:
-    
-      return JSONResponse({
-        "has_data": False,
-        "user": user,
-        "range": range_key,
-        "message": "No readings found for this user."
-    })
+
+        return JSONResponse(
+            {
+                "has_data": False,
+                "user": user,
+                "range": range_key,
+                "message": "No readings found for this user.",
+            }
+        )
 
     # rest of function continues...
 
@@ -2874,13 +3213,9 @@ def api_board_snapshot(
 
     points, events = build_live_points_and_events(rows)
 
-    pat_counts = Counter(
-        [e.get("pattern_id") for e in events if e.get("pattern_id")]
-    )
+    pat_counts = Counter([e.get("pattern_id") for e in events if e.get("pattern_id")])
 
-    zone_counts = Counter(
-        [p.get("zone_id") for p in points if p.get("zone_id")]
-    )
+    zone_counts = Counter([p.get("zone_id") for p in points if p.get("zone_id")])
 
     dominant_zone = max(zone_counts, key=zone_counts.get) if zone_counts else None
 
@@ -2896,9 +3231,9 @@ def api_board_snapshot(
         for p in points
     ]
 
-# -------------------------------------------------
-# 3) Build raw arrays
-# -------------------------------------------------
+    # -------------------------------------------------
+    # 3) Build raw arrays
+    # -------------------------------------------------
 
     times_raw = []
     eeg_vals = []
@@ -2909,9 +3244,9 @@ def api_board_snapshot(
     harmonies = []
     autonomic_vals = []
 
-    for (eeg, ecg, temp, light, noise, ts) in rows:
+    for eeg, ecg, temp, light, noise, ts in rows:
 
-      times_raw.append(parse_iso_to_et(ts))
+        times_raw.append(parse_iso_to_et(ts))
 
     eeg_vals.append(safe(eeg))
     ecg_vals.append(safe(ecg))
@@ -2925,15 +3260,11 @@ def api_board_snapshot(
     autonomic = abs(safe(eeg) - safe(ecg))
     autonomic_vals.append(autonomic)
 
-
     # -------------------------------------------------
     # 4) Drift
     # -------------------------------------------------
 
-    drifts = [
-        abs(harmonies[i] - harmonies[i - 1])
-        for i in range(1, len(harmonies))
-    ]
+    drifts = [abs(harmonies[i] - harmonies[i - 1]) for i in range(1, len(harmonies))]
 
     avg_drift = round(mean(drifts), 3) if drifts else 0.0
     max_drift = round(max(drifts), 3) if drifts else 0.0
@@ -2964,11 +3295,11 @@ def api_board_snapshot(
     stability = 0.0
     try:
         if len(before) >= 2 and len(after) >= 2:
-          bstd = pstdev(before)
-          astd = pstdev(after)
-          stability = round(((bstd - astd) / bstd) * 100, 2) if bstd else 0.0
+            bstd = pstdev(before)
+            astd = pstdev(after)
+            stability = round(((bstd - astd) / bstd) * 100, 2) if bstd else 0.0
     except Exception:
-      stability = 0.0
+        stability = 0.0
 
     hri = round((improvement + stability) / 2, 2)
 
@@ -3010,54 +3341,49 @@ def api_board_snapshot(
             f"</tr>"
         )
 
-    # -------------------------------------------------
-    # FINAL UNIFIED RESPONSE
-    # -------------------------------------------------
+        # -------------------------------------------------
+        # FINAL UNIFIED RESPONSE
+        # -------------------------------------------------
 
-        return JSONResponse({
-        "has_data": True,
-        "user": user,
-        "range": range_key,
-        "last_ts_et": last_ts_et,
+        return JSONResponse(
+            {
+                "has_data": True,
+                "user": user,
+                "range": range_key,
+                "last_ts_et": last_ts_et,
+                "kpis": {
+                    "avg_harmony": avg_harmony,
+                    "min_h": min_h,
+                    "max_h": max_h,
+                    "avg_before": avg_before,
+                    "avg_after": avg_after,
+                    "improvement": improvement,
+                    "stability": stability,
+                    "hri": hri,
+                    "avg_drift": avg_drift,
+                    "max_drift": max_drift,
+                    "zone_label": zone.get("zone_label", ""),
+                    "zone_conf": zone.get("confidence", 0.0),
+                },
+                "charts": {
+                    "times": chart_times,
+                    "harmonies": chart_harmonies,
+                    "eeg": chart_eeg,
+                    "ecg": chart_ecg,
+                },
+                "patterns": {
+                    "events": events,
+                    "pattern_counts": dict(pat_counts),
+                },
+                "zones": {
+                    "dominant_zone": dominant_zone,
+                    "zone_counts": dict(zone_counts),
+                },
+                "radar_frames": radar_frames,
+                "tables": {"raw_rows_html": raw_rows_html},
+            }
+        )
 
-        "kpis": {
-            "avg_harmony": avg_harmony,
-            "min_h": min_h,
-            "max_h": max_h,
-            "avg_before": avg_before,
-            "avg_after": avg_after,
-            "improvement": improvement,
-            "stability": stability,
-            "hri": hri,
-            "avg_drift": avg_drift,
-            "max_drift": max_drift,
-            "zone_label": zone.get("zone_label", ""),
-            "zone_conf": zone.get("confidence", 0.0),
-        },
-
-        "charts": {
-            "times": chart_times,
-            "harmonies": chart_harmonies,
-            "eeg": chart_eeg,
-            "ecg": chart_ecg,
-        },
-
-        "patterns": {
-            "events": events,
-            "pattern_counts": dict(pat_counts),
-        },
-
-        "zones": {
-            "dominant_zone": dominant_zone,
-            "zone_counts": dict(zone_counts),
-        },
-
-        "radar_frames": radar_frames,
-
-        "tables": {
-            "raw_rows_html": raw_rows_html
-        }
-    })
 
 # ---------- Correlation Helper (Pearson) ----------
 def pearson(xs: list, ys: list):
@@ -3066,7 +3392,7 @@ def pearson(xs: list, ys: list):
     Returns float or None if insufficient data.
     """
     if len(xs) < 3 or len(ys) < 3:
-      return None
+        return None
 
     mx, my = mean(xs), mean(ys)
 
@@ -3074,8 +3400,8 @@ def pearson(xs: list, ys: list):
     num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
 
     # denominator
-    denx = sum((x - mx)**2 for x in xs)
-    deny = sum((y - my)**2 for y in ys)
+    denx = sum((x - mx) ** 2 for x in xs)
+    deny = sum((y - my) ** 2 for y in ys)
 
     if denx == 0 or deny == 0:
         return None
@@ -3087,6 +3413,7 @@ def pearson(xs: list, ys: list):
 # ---------- ZONES (inferred field regions) ----------
 # -------------------------------------------------
 
+
 def _series_stats(vals: list[float]):
     if not vals:
         return {"mean": 0.0, "std": 0.0, "min": 0.0, "max": 0.0}
@@ -3094,7 +3421,10 @@ def _series_stats(vals: list[float]):
     s = pstdev(vals) if len(vals) > 1 else 0.0
     return {"mean": m, "std": s, "min": min(vals), "max": max(vals)}
 
-def infer_zone_from_window(eeg_vals: list[float], ecg_vals: list[float], temp_vals: list[float]):
+
+def infer_zone_from_window(
+    eeg_vals: list[float], ecg_vals: list[float], temp_vals: list[float]
+):
     """
     Zones are inferred field behavior regions, NOT organs.
     Returns: zone_id (1-3), zone_label, confidence (0-1), reasons[]
@@ -3125,7 +3455,9 @@ def infer_zone_from_window(eeg_vals: list[float], ecg_vals: list[float], temp_va
         zone_label = "Z3 - Broad / Low-Variability Dominance"
         reasons.append("Lower variability and/or weaker coupling")
 
-    confidence = max(0.15, min(1.0, (coupling * 0.6) + (min(variability / 25.0, 1.0) * 0.4)))
+    confidence = max(
+        0.15, min(1.0, (coupling * 0.6) + (min(variability / 25.0, 1.0) * 0.4))
+    )
     confidence = round(confidence, 2)
 
     return {
@@ -3139,19 +3471,23 @@ def infer_zone_from_window(eeg_vals: list[float], ecg_vals: list[float], temp_va
             "temp_std": round(tmp_s["std"], 2),
         },
         "reasons": reasons,
-        "disclaimer": "Zones are inferred field behavior regions, not anatomical localization."
+        "disclaimer": "Zones are inferred field behavior regions, not anatomical localization.",
     }
+
 
 def get_recent_rows_for_user(user_id: int, limit: int = 120):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
         WHERE user_id = ?
         ORDER BY timestamp DESC
         LIMIT ?
-    """, (user_id, limit))
+    """,
+        (user_id, limit),
+    )
     rows = c.fetchall()
     conn.close()
 
@@ -3159,9 +3495,11 @@ def get_recent_rows_for_user(user_id: int, limit: int = 120):
     rows.reverse()
     return rows
 
+
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel
+
 
 class TagIn(BaseModel):
     user_id: int
@@ -3170,6 +3508,7 @@ class TagIn(BaseModel):
     end_ts: Optional[str] = None
     note: Optional[str] = None
     severity: Optional[int] = None
+
 
 @app.post("/tags")
 def create_tag(t: TagIn):
@@ -3208,6 +3547,7 @@ def create_tag(t: TagIn):
         "start_ts": start_ts,
         "end_ts": t.end_ts,
     }
+
 
 def _cutoff_iso_for_range(range_key: str) -> Optional[str]:
     now = datetime.utcnow()
@@ -3274,7 +3614,7 @@ def get_tags(
     # 3️⃣ Return dict format
     # -------------------------------------------------
     out = []
-    for (id_, tag_type, start_ts, end_ts, note, severity, created_at) in rows:
+    for id_, tag_type, start_ts, end_ts, note, severity, created_at in rows:
         out.append(
             {
                 "id": id_,
@@ -3309,12 +3649,16 @@ def api_recent(
     # trim events to last ~40 so UI stays clean
     events = events[-40:]
 
-    return JSONResponse({
-        "user": user,
-        "points": points,
-        "events": events,
-        "disclaimer": "Pattern + zone tags are non-diagnostic behavioral labels for research/wellness visualization only."
-    })
+    return JSONResponse(
+        {
+            "user": user,
+            "points": points,
+            "events": events,
+            "disclaimer": "Pattern + zone tags are non-diagnostic behavioral labels for research/wellness visualization only.",
+        }
+    )
+
+
 @app.get("/debug/tables")
 def debug_tables():
     conn = get_conn()
@@ -3330,6 +3674,7 @@ def debug_tables():
 @app.get("/debug/runtime")
 def debug_runtime():
     import inspect, os, sys
+
     m = sys.modules[__name__]
     return {
         "cwd": os.getcwd(),
@@ -3341,10 +3686,8 @@ def debug_runtime():
 
 def debug_dbpath():
     import os
-    return {
-        "cwd": os.getcwd(),
-        "db_abspath": os.path.abspath("ashwin.db")
-    }
+
+    return {"cwd": os.getcwd(), "db_abspath": os.path.abspath("ashwin.db")}
 
 
 def to_sqlite_dt(dt: datetime) -> str:
@@ -3354,6 +3697,7 @@ def to_sqlite_dt(dt: datetime) -> str:
 # -------------------------------------------------
 # ---------- PATTERN REVIEW QUEUE (Milestone 4) ----------
 # -------------------------------------------------
+
 
 def _sig_from_pattern_counts(pc: dict) -> str:
     """
@@ -3367,7 +3711,9 @@ def _sig_from_pattern_counts(pc: dict) -> str:
 
 
 @app.post("/review_queue/run/{uid}")
-def review_queue_run(uid: int, hours: int = 6, min_repeats: int = 3, range_q: str = "day"):
+def review_queue_run(
+    uid: int, hours: int = 6, min_repeats: int = 3, range_q: str = "day"
+):
     ...
     """
     Build review candidates from repeated pattern signatures in recent events.
@@ -3399,7 +3745,6 @@ def review_queue_run(uid: int, hours: int = 6, min_repeats: int = 3, range_q: st
 
         if dt is None or dt >= cutoff:
             recent.append(e)
-
 
     if not recent:
         return {"ok": True, "inserted": 0, "reason": "no recent events"}
@@ -3440,60 +3785,75 @@ def review_queue_run(uid: int, hours: int = 6, min_repeats: int = 3, range_q: st
         we = meta.get("we", "")
 
         # Avoid duplicates that are still "new"
-        c.execute("""
+        c.execute(
+            """
           SELECT id FROM pattern_review_queue
           WHERE user_id=? AND sig=? AND status='new'
           LIMIT 1
-        """, (uid, sig))
+        """,
+            (uid, sig),
+        )
         if c.fetchone():
             continue
 
-        c.execute("""
+        c.execute(
+            """
           INSERT INTO pattern_review_queue
           (user_id, sig, window_start, window_end, event_count, pattern_counts_json, status)
           VALUES (?, ?, ?, ?, ?, ?, 'new')
-        """, (uid, sig, ws, we, int(reps), json.dumps(pc)))
+        """,
+            (uid, sig, ws, we, int(reps), json.dumps(pc)),
+        )
         inserted += 1
 
     conn.commit()
     conn.close()
 
-    return {"ok": True, "inserted": inserted, "scanned_events": len(recent), "unique_sigs": len(sig_counter)}
+    return {
+        "ok": True,
+        "inserted": inserted,
+        "scanned_events": len(recent),
+        "unique_sigs": len(sig_counter),
+    }
 
 
 @app.get("/review_queue/{uid}")
 def review_queue_get(uid: int, status: str = "new", limit: int = 50):
     conn = get_conn()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
       SELECT id, sig, window_start, window_end, event_count, pattern_counts_json, suggested_label, status, created_at
       FROM pattern_review_queue
       WHERE user_id=? AND status=?
       ORDER BY datetime(created_at) DESC
       LIMIT ?
-    """, (uid, status, limit))
+    """,
+        (uid, status, limit),
+    )
     rows = c.fetchall()
     conn.close()
 
     items = []
-    for (rid, sig, ws, we, ec, pcj, label, st, created_at) in rows:
+    for rid, sig, ws, we, ec, pcj, label, st, created_at in rows:
         try:
             pc = json.loads(pcj) if pcj else {}
         except Exception:
             pc = {}
-        items.append({
-            "id": rid,
-            "sig": sig,
-            "window": {"start": ws, "end": we},
-            "repeats": ec,
-            "pattern_counts": pc,
-            "suggested_label": label,
-            "status": st,
-            "created_at": created_at,
-        })
+        items.append(
+            {
+                "id": rid,
+                "sig": sig,
+                "window": {"start": ws, "end": we},
+                "repeats": ec,
+                "pattern_counts": pc,
+                "suggested_label": label,
+                "status": st,
+                "created_at": created_at,
+            }
+        )
 
     return {"user_id": uid, "status": status, "items": items}
-
 
 
 @app.get("/debug/session_state/{uid}")
@@ -3502,14 +3862,23 @@ def debug_session_state(uid: int):
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("SELECT id, start_time, end_time FROM sessions WHERE user_id=? ORDER BY id DESC LIMIT 5", (uid,))
+    c.execute(
+        "SELECT id, start_time, end_time FROM sessions WHERE user_id=? ORDER BY id DESC LIMIT 5",
+        (uid,),
+    )
     sessions = c.fetchall()
 
-    c.execute("SELECT id FROM sessions WHERE user_id=? AND end_time IS NULL ORDER BY id DESC LIMIT 1", (uid,))
+    c.execute(
+        "SELECT id FROM sessions WHERE user_id=? AND end_time IS NULL ORDER BY id DESC LIMIT 1",
+        (uid,),
+    )
     active = c.fetchone()
     active_id = active[0] if active else None
 
-    c.execute("SELECT timestamp, session_id FROM readings WHERE user_id=? ORDER BY timestamp DESC LIMIT 10", (uid,))
+    c.execute(
+        "SELECT timestamp, session_id FROM readings WHERE user_id=? ORDER BY timestamp DESC LIMIT 10",
+        (uid,),
+    )
     latest_reads = c.fetchall()
 
     conn.close()
@@ -3517,9 +3886,8 @@ def debug_session_state(uid: int):
     return {
         "active_session_id": active_id,
         "recent_sessions": sessions,
-        "latest_readings": latest_reads
+        "latest_readings": latest_reads,
     }
-
 
 
 # ---------- Wellness Command Center (/board) ----------
@@ -3535,18 +3903,19 @@ def map_event_type(etype: str):
         "A2": ("Drift Spike", "Short burst of instability in the signal envelope."),
         "A3": ("Acute Drift Spike", "Sudden instability event."),
         "A4": ("Sustained Instability Spike", "Elevated drift with slower recovery."),
-
         "C1": ("Micro-Coherence Dip", "Brief alignment loss with quick restoration."),
         "C2": ("Coherence Shift", "Coupling pattern changed across windows."),
         "C3": ("Coherence Drop", "Reduced alignment stability across sensors."),
-
         "R1": ("Resonance Plateau", "Stable dominant rhythm with low variance."),
         "R2": ("Resonance Build", "Growing rhythm stability across windows."),
         "R3": ("Resonance Break", "Sudden loss of dominant rhythm."),
         "R4": ("Resonance Lock", "Strong stable envelope across windows."),
     }
 
-    return mapping.get(et, ("Signal Event", "Notable change detected in the recent window."))
+    return mapping.get(
+        et, ("Signal Event", "Notable change detected in the recent window.")
+    )
+
 
 # ✅ ADD THIS HELPER FUNCTION RIGHT HERE
 def detect_sessions(rows, gap_seconds=180):
@@ -3573,7 +3942,10 @@ def detect_sessions(rows, gap_seconds=180):
 
     return sessions
 
-def get_window_rows(user: int, range_key: str, start: str | None = None, end: str | None = None):
+
+def get_window_rows(
+    user: int, range_key: str, start: str | None = None, end: str | None = None
+):
 
     conn = get_conn()
     c = conn.cursor()
@@ -3581,41 +3953,47 @@ def get_window_rows(user: int, range_key: str, start: str | None = None, end: st
     now_utc = datetime.utcnow()
     rows = []
 
-      # ---------------------------
-      # 1️⃣ Custom date range
-      # ---------------------------
+    # ---------------------------
+    # 1️⃣ Custom date range
+    # ---------------------------
     if start and end:
-      try:
-        s_dt = datetime.strptime(start, "%Y-%m-%d")
-        e_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
+        try:
+            s_dt = datetime.strptime(start, "%Y-%m-%d")
+            e_dt = datetime.strptime(end, "%Y-%m-%d") + timedelta(days=1)
 
-        c.execute("""
+            c.execute(
+                """
             SELECT eeg, ecg, temperature, light, noise, timestamp
             FROM readings
             WHERE user_id=?
             AND timestamp >= ?
             AND timestamp < ?
             ORDER BY timestamp ASC
-        """, (user, to_sqlite_dt(s_dt), to_sqlite_dt(e_dt)))
+        """,
+                (user, to_sqlite_dt(s_dt), to_sqlite_dt(e_dt)),
+            )
 
-        rows = c.fetchall()
-        conn.close()
-        return rows
+            rows = c.fetchall()
+            conn.close()
+            return rows
 
-      except Exception:
-        pass
+        except Exception:
+            pass
 
     # ---------------------------
     # 2️⃣ Session mode (auto-detect)
     # ---------------------------
     if range_key == "session":
 
-        c.execute("""
+        c.execute(
+            """
             SELECT eeg, ecg, temperature, light, noise, timestamp
             FROM readings
             WHERE user_id=?
             ORDER BY timestamp ASC
-        """, (user,))
+        """,
+            (user,),
+        )
 
         all_rows = c.fetchall()
         conn.close()
@@ -3651,13 +4029,16 @@ def get_window_rows(user: int, range_key: str, start: str | None = None, end: st
         cutoff = now_utc - timedelta(days=7)
 
     if cutoff:
-        c.execute("""
+        c.execute(
+            """
           SELECT eeg, ecg, temperature, light, noise, timestamp
           FROM readings
           WHERE user_id=?
           AND timestamp >= ?
           ORDER BY timestamp ASC
-        """, (user, to_sqlite_dt(cutoff)))
+        """,
+            (user, to_sqlite_dt(cutoff)),
+        )
 
         rows = c.fetchall()
         conn.close()
@@ -3666,20 +4047,26 @@ def get_window_rows(user: int, range_key: str, start: str | None = None, end: st
     # ---------------------------
     # 4️⃣ All time (limited for performance)
     # ---------------------------
-    c.execute("""
+    c.execute(
+        """
           SELECT eeg, ecg, temperature, light, noise, timestamp
           FROM readings
           WHERE user_id=?
           ORDER BY timestamp ASC
-        """, (user,))
+        """,
+        (user,),
+    )
 
     rows = c.fetchall()
     rows.reverse()  # restore chronological order
 
     conn.close()
     return rows
-  
-def get_window_events(user: int, range_key: str, start: str | None = None, end: str | None = None):
+
+
+def get_window_events(
+    user: int, range_key: str, start: str | None = None, end: str | None = None
+):
     """
     Fetch life_events inside the SAME window used by get_window_rows().
     """
@@ -3715,6 +4102,7 @@ def get_window_events(user: int, range_key: str, start: str | None = None, end: 
 
 @app.get("/board", response_class=HTMLResponse)
 def board(req: Request):
+
     conn = get_conn()
     c = conn.cursor()
 
@@ -3726,26 +4114,29 @@ def board(req: Request):
     q_user = req.query_params.get("user")
 
     if q_user:
-      selected = int(q_user)
+        selected = int(q_user)
 
     else:
-    # Automatically select the user with the latest reading
-      row = c.execute(
-        """
-        SELECT user_id
-        FROM readings
-        ORDER BY id DESC
-        LIMIT 1
-        """
-    ).fetchone()
+        # Automatically select the user with the latest reading
+        row = c.execute(
+            """
+            SELECT user_id
+            FROM readings
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
 
-    if row:
-        selected = int(row[0])
-    else:
-        selected = users[0][0] if users else 1
+        if row:
+            selected = int(row[0])
+        else:
+            selected = users[0][0] if users else 1
 
     # Get display name for selected user
-    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=?", (selected,))
+    c.execute(
+        "SELECT COALESCE(display_name, name) FROM users WHERE id=?",
+        (selected,)
+    )
     row = c.fetchone()
     uname = row[0] if row else f"User {selected}"
 
@@ -3758,7 +4149,7 @@ def board(req: Request):
     rows = get_window_rows(selected, range_key, start, end)
 
     if not rows:
-      rows = get_window_rows(selected, "all")
+        rows = get_window_rows(selected, "all")
 
     # ⭐ Smart fallback: if window empty, load last session
     if not rows and range_key != "session":
@@ -3768,24 +4159,24 @@ def board(req: Request):
 
     # Last reading timestamp
     try:
-      last_ts_et = parse_iso_to_et(rows[-1][5]) if rows else "-"
+        last_ts_et = parse_iso_to_et(rows[-1][5]) if rows else "-"
     except Exception:
-      last_ts_et = "-"
-
+        last_ts_et = "-"
     # ---------- Build numeric arrays safely ----------
-if not rows:
-    rows = [(0.0, 0.0, 98.6, 0.0, 0.0, "1970-01-01T00:00:00")]
 
-times_raw = []
-eeg_vals = []
-ecg_vals = []
-temp_vals = []
-light_vals = []
-noise_vals = []
-harmonies = []
-autonomic_vals = []
+    if not rows:
+        rows = [(0.0, 0.0, 98.6, 0.0, 0.0, "1970-01-01T00:00:00")]
 
-for (eeg, ecg, temp, light, noise, ts) in rows:
+    times_raw = []
+    eeg_vals = []
+    ecg_vals = []
+    temp_vals = []
+    light_vals = []
+    noise_vals = []
+    harmonies = []
+    autonomic_vals = []
+
+    for eeg, ecg, temp, light, noise, ts in rows:
 
         times_raw.append(parse_iso_to_et(ts))
 
@@ -3802,77 +4193,83 @@ for (eeg, ecg, temp, light, noise, ts) in rows:
         autonomic_vals.append(autonomic)
 
     # ---------- SAFETY: prevent empty arrays crashing charts ----------
-if not times_raw:
+    if not times_raw:
         times_raw = ["-"]
 
-if not harmonies:
+    if not harmonies:
         harmonies = [0]
 
-if not eeg_vals:
+    if not eeg_vals:
         eeg_vals = [0]
 
-if not ecg_vals:
+    if not ecg_vals:
         ecg_vals = [0]
 
     # --- Drift (avg step-to-step change in Harmony) ---
-try:
-        drifts = [abs(harmonies[i] - harmonies[i-1]) for i in range(1, len(harmonies))]
+    try:
+        drifts = [abs(harmonies[i] - harmonies[i - 1]) for i in range(1, len(harmonies))]
         avg_drift = round(mean(drifts), 3) if drifts else 0.0
         max_drift = round(max(drifts), 3) if drifts else 0.0
-except Exception:
+    except Exception:
         avg_drift = 0.0
         max_drift = 0.0
 
     # Core stats from raw harmonies
-if harmonies:
+    if harmonies:
         avg_harmony = round(mean(harmonies), 2)
         min_h = round(min(harmonies), 2)
         max_h = round(max(harmonies), 2)
-else:
+    else:
         avg_harmony = min_h = max_h = 0.0
 
     # Split before/after safely
-n = len(harmonies)
-mid = max(1, n // 2)
+    n = len(harmonies)
+    mid = max(1, n // 2)
 
-before = harmonies[:mid]
-after = harmonies[mid:]
+    before = harmonies[:mid]
+    after = harmonies[mid:]
 
-avg_before = round(mean(before), 2) if before else 0.0
-avg_after = round(mean(after), 2) if after else 0.0
+    avg_before = round(mean(before), 2) if before else 0.0
+    avg_after = round(mean(after), 2) if after else 0.0
 
     # Improvement (% change) safely
-improvement = round(((avg_after - avg_before) / avg_before) * 100, 2) if avg_before else 0.0
+    improvement = (
+        round(((avg_after - avg_before) / avg_before) * 100, 2) if avg_before else 0.0
+    )
 
     # Stability safely (pstdev requires >= 2 points)
-stability = 0.0
-try:
+    stability = 0.0
+    try:
         if len(before) >= 2 and len(after) >= 2:
-            stability = round(((pstdev(before) - pstdev(after)) / pstdev(before)) * 100, 2) if pstdev(before) else 0.0
-except Exception:
+            stability = (
+                round(((pstdev(before) - pstdev(after)) / pstdev(before)) * 100, 2)
+                if pstdev(before)
+                else 0.0
+            )
+    except Exception:
         stability = 0.0
 
-hri = round((improvement + stability) / 2, 2)
+    hri = round((improvement + stability) / 2, 2)
 
-        # ---------- Zone Inference ----------
-zone = infer_zone_from_window(eeg_vals, ecg_vals, temp_vals)
+    # ---------- Zone Inference ----------
+    zone = infer_zone_from_window(eeg_vals, ecg_vals, temp_vals)
 
-zone_html = f"""
-    <div class="col-sm-6 col-lg-3 mb-3">
-    <div class="card kpi-card p-3 h-100">
-    <h6 class="text-muted mb-1">Zone Dominance</h6>
-    <h5 class="mb-1"><span id="kpiZoneLabel">{zone["zone_label"]}</span></h5>
-    <small class="text-muted">
-    Confidence: <span id="kpiZoneConf">{zone["confidence"]}</span>
-    </small>
-    </div>
-    </div>
-    """
+    zone_html = f"""
+     <div class="col-sm-6 col-lg-3 mb-3">
+     <div class="card kpi-card p-3 h-100">
+     <h6 class="text-muted mb-1">Zone Dominance</h6>
+     <h5 class="mb-1"><span id="kpiZoneLabel">{zone["zone_label"]}</span></h5>
+     <small class="text-muted">
+     Confidence: <span id="kpiZoneConf">{zone["confidence"]}</span>
+     </small>
+     </div>
+     </div>
+     """
 
     # ---------- Ratios (brain coherence + signal-to-noise) ----------
-ratio_rows = []
+    ratio_rows = []
 
-for eeg, ecg, temp, light, noise, ts in rows:
+    for eeg, ecg, temp, light, noise, ts in rows:
 
         if ecg:
             brain_coherence = round(eeg / ecg, 3) if eeg is not None and ecg != 0 else 0
@@ -3887,35 +4284,34 @@ for eeg, ecg, temp, light, noise, ts in rows:
         ratio_rows.append((parse_iso_to_et(ts), brain_coherence, signal_to_noise))
 
     # ---------- Correlations ----------
-def safe_series(vals):
+    def safe_series(vals):
         return [v for v in vals if v is not None]
 
-eeg_s = safe_series(eeg_vals)
-ecg_s = safe_series(ecg_vals)
-temp_s = safe_series(temp_vals)
-light_s = safe_series(light_vals)
-noise_s = safe_series(noise_vals)
+    eeg_s = safe_series(eeg_vals)
+    ecg_s = safe_series(ecg_vals)
+    temp_s = safe_series(temp_vals)
+    light_s = safe_series(light_vals)
+    noise_s = safe_series(noise_vals)
 
-corr_rows = []
+    corr_rows = []
 
-def add_corr(label, xs, ys):
+    def add_corr(label, xs, ys):
         r = pearson(xs, ys)
         if r is None:
             corr_rows.append((label, "-"))
         else:
             corr_rows.append((label, r))
 
-add_corr("EEG vs Light", eeg_s, light_s)
-add_corr("EEG vs Noise", eeg_s, noise_s)
-add_corr("ECG vs Light", ecg_s, light_s)
-add_corr("ECG vs Noise", ecg_s, noise_s)
-add_corr("Temp vs Light", temp_s, light_s)
-add_corr("Temp vs Noise", temp_s, noise_s)
-
+    add_corr("EEG vs Light", eeg_s, light_s)
+    add_corr("EEG vs Noise", eeg_s, noise_s)
+    add_corr("ECG vs Light", ecg_s, light_s)
+    add_corr("ECG vs Noise", ecg_s, noise_s)
+    add_corr("Temp vs Light", temp_s, light_s)
+    add_corr("Temp vs Noise", temp_s, noise_s)
     # ---------- Tables HTML ----------
-raw_rows_html = ""
+    raw_rows_html = ""
 
-for (eeg, ecg, temp, light, noise, ts), h in zip(rows[-40:], harmonies[-40:]):
+    for (eeg, ecg, temp, light, noise, ts), h in zip(rows[-40:], harmonies[-40:]):
 
         eeg_s_ = f"{safe(eeg):.2f}" if eeg is not None else "-"
         ecg_s_ = f"{safe(ecg):.2f}" if ecg is not None else "-"
@@ -3936,25 +4332,25 @@ for (eeg, ecg, temp, light, noise, ts), h in zip(rows[-40:], harmonies[-40:]):
             f"</tr>"
         )
 
-ratio_html = ""
+    ratio_html = ""
 
-for ts, bc, sn in ratio_rows[-40:]:
+    for ts, bc, sn in ratio_rows[-40:]:
         ratio_html += f"<tr><td>{ts}</td><td>{bc}</td><td>{sn}</td></tr>"
 
-corr_html = ""
+    corr_html = ""
 
-for label, val in corr_rows:
+    for label, val in corr_rows:
         corr_html += f"<tr><td>{label}</td><td>{val}</td></tr>"
 
     # ---------- Critical Harmony Events ----------
-events_html = ""
+    events_html = ""
 
-if not event_rows:
+    if not event_rows:
         events_html = (
             "<tr><td colspan='4' class='text-muted'>No Critical Harmony Events in this window."
             " Harmony patterns stayed within expected wellness ranges.</td></tr>"
         )
-else:
+    else:
         for etype, conf, note, created_at in event_rows:
 
             label, safe_desc = map_event_type(etype)
@@ -3970,17 +4366,12 @@ else:
             )
 
     # ---------- Chart arrays ----------
-chart_times, chart_harmonies, chart_eeg, chart_ecg = downsample_and_smooth(
-        times_raw,
-        harmonies,
-        eeg_vals,
-        ecg_vals,
-        step=5,
-        window=20
+    chart_times, chart_harmonies, chart_eeg, chart_ecg = downsample_and_smooth(
+        times_raw, harmonies, eeg_vals, ecg_vals, step=5, window=20
     )
 
     # ---------- Range Options ----------
-range_options = [
+    range_options = [
         ("session", "Last Session"),
         ("10m", "Last 10 minutes"),
         ("30m", "Last 30 minutes"),
@@ -3991,20 +4382,20 @@ range_options = [
         ("all", "All Time"),
     ]
 
-  
-# ---------- Prepare chart arrays ----------
-chart_times = times_raw
-chart_harmonies = harmonies
-chart_eeg = eeg_vals
-chart_ecg = ecg_vals
+    # ---------- Prepare chart arrays ----------
+    chart_times = times_raw
+    chart_harmonies = harmonies
+    chart_eeg = eeg_vals
+    chart_ecg = ecg_vals
 
-if not chart_times:
-      chart_times = ["-"]
-      chart_harmonies = [0]
-      chart_eeg = [0]
-      chart_ecg = [0]
+    if not chart_times:
+        chart_times = ["-"]
+        chart_harmonies = [0]
+        chart_eeg = [0]
+        chart_ecg = [0]
+
     # ---------- Chart JSON ----------
-chart_payload = {
+    chart_payload = {
         "times": chart_times,
         "harmonies": chart_harmonies,
         "eeg": chart_eeg,
@@ -4017,197 +4408,195 @@ chart_payload = {
         "avg_after": avg_after,
     }
 
-chart_json = json.dumps(chart_payload)
+    chart_json = json.dumps(chart_payload)
 
-chart_data_script = f"""
-    <script>
-    window.CHART_DATA = {chart_json};
-    </script>
+    chart_data_script = f"""
+     <script>
+     window.CHART_DATA = {chart_json};
+     </script>
     """
-# ---------- Charts JS (SAFE TEMPLATE) ----------
+    # ---------- Charts JS (SAFE TEMPLATE) ----------
 
-charts_js = r'''
-    <script>
+    charts_js = r"""
+     <script>
     (function () {
-      const D = window.CHART_DATA || {};
+     const D = window.CHART_DATA || {};
 
-      function ctx(id) {
-        const el = document.getElementById(id);
-        return el ? el.getContext('2d') : null;
-      }
+     function ctx(id) {
+     const el = document.getElementById(id);
+     return el ? el.getContext('2d') : null;
+     }
 
-      // Harmony Summary
-      const c1 = ctx('summaryHarmonyChart');
-      if (c1 && (D.times || []).length) {
-        window.summaryHarmonyChartObj = new Chart(c1, {
-          type: 'line',
-          data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
-          options: { responsive: true, animation: false }
-        });
-      }
+     // Harmony Summary
+     const c1 = ctx('summaryHarmonyChart');
+     if (c1 && (D.times || []).length) {
+     window.summaryHarmonyChartObj = new Chart(c1, {
+     type: 'line',
+     data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      // Harmony Trend
-      const c2 = ctx('harmonyTrendChart');
-      if (c2 && (D.times || []).length) {
-        window.harmonyTrendChartObj = new Chart(c2, {
-          type: 'line',
-          data: {
-            labels: D.times || [],
-            datasets: [
-              { label: 'Harmony', data: D.harmonies || [], tension: 0.25 },
-              { label: 'EEG-like', data: D.eeg || [], tension: 0.25 },
-              { label: 'ECG-like', data: D.ecg || [], tension: 0.25 }
-            ]
-          },
-          options: { responsive: true, animation: false }
-        });
-      }
+     // Harmony Trend
+     const c2 = ctx('harmonyTrendChart');
+     if (c2 && (D.times || []).length) {
+     window.harmonyTrendChartObj = new Chart(c2, {
+     type: 'line',
+     data: {
+     labels: D.times || [],
+     datasets: [
+     { label: 'Harmony', data: D.harmonies || [], tension: 0.25 },
+     { label: 'EEG-like', data: D.eeg || [], tension: 0.25 },
+     { label: 'ECG-like', data: D.ecg || [], tension: 0.25 }
+     ]
+     },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      // Proof
-      const c3 = ctx('proofCompareChart');
-      if (c3) {
-        window.proofCompareChartObj = new Chart(c3, {
-          type: 'bar',
-          data: { labels: ['Before','After'], datasets: [{ label: 'Avg Harmony', data: [D.avg_before || 0, D.avg_after || 0] }] },
-          options: { responsive: true, animation: false }
-        });
-      }
+     // Proof
+     const c3 = ctx('proofCompareChart');
+     if (c3) {
+     window.proofCompareChartObj = new Chart(c3, {
+     type: 'bar',
+     data: { labels: ['Before','After'], datasets: [{ label: 'Avg Harmony', data: [D.avg_before || 0, D.avg_after || 0] }] },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      const c4 = ctx('proofHarmonyChart');
-      if (c4 && (D.times || []).length) {
-        window.proofHarmonyChartObj = new Chart(c4, {
-          type: 'line',
-          data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
-          options: { responsive: true, animation: false }
-        });
-      }
+     const c4 = ctx('proofHarmonyChart');
+     if (c4 && (D.times || []).length) {
+     window.proofHarmonyChartObj = new Chart(c4, {
+     type: 'line',
+     data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      // Fields
-      const brain = ctx('brainFieldChart');
-      if (brain && (D.times || []).length) {
-        window.brainFieldChartObj = new Chart(brain, {
-          type: 'line',
-          data: { labels: D.times || [], datasets: [{ label: 'EEG-like', data: D.eeg || [], tension: 0.25 }] },
-          options: { responsive: true, animation: false }
-        });
-      }
+     // Fields
+     const brain = ctx('brainFieldChart');
+     if (brain && (D.times || []).length) {
+     window.brainFieldChartObj = new Chart(brain, {
+     type: 'line',
+     data: { labels: D.times || [], datasets: [{ label: 'EEG-like', data: D.eeg || [], tension: 0.25 }] },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      const cardiac = ctx('cardiacFieldChart');
-      if (cardiac && (D.times || []).length) {
-        window.cardiacFieldChartObj = new Chart(cardiac, {
-          type: 'line',
-          data: { labels: D.times || [], datasets: [{ label: 'ECG-like', data: D.ecg || [], tension: 0.25 }] },
-          options: { responsive: true, animation: false }
-        });
-      }
+     const cardiac = ctx('cardiacFieldChart');
+     if (cardiac && (D.times || []).length) {
+     window.cardiacFieldChartObj = new Chart(cardiac, {
+     type: 'line',
+     data: { labels: D.times || [], datasets: [{ label: 'ECG-like', data: D.ecg || [], tension: 0.25 }] },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      const thermal = ctx('thermalFieldChart');
-      if (thermal && (D.times || []).length) {
-        window.thermalFieldChartObj = new Chart(thermal, {
-          type: 'line',
-          data: { labels: D.times || [], datasets: [{ label: 'Temperature', data: D.temp || [], tension: 0.25 }] },
-          options: { responsive: true, animation: false }
-        });
-      }
+     const thermal = ctx('thermalFieldChart');
+     if (thermal && (D.times || []).length) {
+     window.thermalFieldChartObj = new Chart(thermal, {
+     type: 'line',
+     data: { labels: D.times || [], datasets: [{ label: 'Temperature', data: D.temp || [], tension: 0.25 }] },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-      const env = ctx('envFieldChart');
-      if (env && (D.times || []).length) {
-        window.envFieldChartObj = new Chart(env, {
-          type: 'line',
-          data: {
-            labels: D.times || [],
-            datasets: [
-              { label: 'Light', data: D.light || [], tension: 0.25 },
-              { label: 'Noise', data: D.noise || [], tension: 0.25 }
-            ]
-          },
-          options: { responsive: true, animation: false }
-        });
-      }
+     const env = ctx('envFieldChart');
+     if (env && (D.times || []).length) {
+     window.envFieldChartObj = new Chart(env, {
+     type: 'line',
+     data: {
+     labels: D.times || [],
+     datasets: [
+     { label: 'Light', data: D.light || [], tension: 0.25 },
+     { label: 'Noise', data: D.noise || [], tension: 0.25 }
+     ]
+     },
+     options: { responsive: true, animation: false }
+     });
+     }
 
-    })();
-    </script>
-    '''
+     })();
+     </script>
+     """
 
-range_select_html = "".join(
-            f"<option value='{val}' {'selected' if val == range_key else ''}>{label}</option>"
-            for val, label in range_options
-        )
-
-        # --- SAFETY DEFAULTS: never let /board crash due to missing JS blocks ---
-LIVE_STRIP_JS = globals().get("LIVE_STRIP_JS", "")
-RADAR_SCRIPT_JS = globals().get("RADAR_SCRIPT_JS", "")
-        
-
-            # ---------- HTML ----------
-       
-       
-RANGE_JS = r"""
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-
-  const rangeSelect = document.getElementById("rangeSelect");
-  const userSelect = document.getElementById("userSelect");
-
-  function updateUrl(newRange, newUser) {
-    const params = new URLSearchParams(window.location.search);
-
-    if (newRange && newRange.trim() !== "") {
-      params.set("range", newRange);
-    }
-
-    if (newUser && newUser.trim() !== "") {
-      params.set("user", newUser);
-    } else {
-      params.delete("user");  // 🚨 NEVER allow user=
-    }
-
-    window.location.search = params.toString();
-  }
-
-  if (rangeSelect) {
-    rangeSelect.addEventListener("change", function () {
-      const userVal = userSelect ? userSelect.value : null;
-      updateUrl(this.value, userVal);
-    });
-  }
-
-  if (userSelect) {
-    userSelect.addEventListener("change", function () {
-      const rangeVal = rangeSelect ? rangeSelect.value : null;
-      updateUrl(rangeVal, this.value);
-    });
-  }
-
-});
-</script>
-"""
-    # Fetch users for dropdown
-conn = get_conn()
-c = conn.cursor()
-c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
-users = c.fetchall()
-conn.close()
-
-# Safety fallback if DB empty
-if not users or len(users) == 0:
-    users = [(1, "User 1")]
-
-user_options_html = ""
-
-for u in users:
-    uid = u[0]
-    display_name = u[1]
-
-    selected_attr = "selected" if uid == selected else ""
-
-    user_options_html += (
-        f"<option value='{uid}' {selected_attr}>"
-        f"{display_name} (User {uid})"
-        f"</option>"
+    range_select_html = "".join(
+        f"<option value='{val}' {'selected' if val == range_key else ''}>{label}</option>"
+        for val, label in range_options
     )
 
-      html = f"""
+    # --- SAFETY DEFAULTS: never let /board crash due to missing JS blocks ---
+    LIVE_STRIP_JS = globals().get("LIVE_STRIP_JS", "")
+    RADAR_SCRIPT_JS = globals().get("RADAR_SCRIPT_JS", "")
+
+    # ---------- HTML ----------
+
+    RANGE_JS = r"""
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+     const rangeSelect = document.getElementById("rangeSelect");
+     const userSelect = document.getElementById("userSelect");
+
+     function updateUrl(newRange, newUser) {
+     const params = new URLSearchParams(window.location.search);
+
+     if (newRange && newRange.trim() !== "") {
+     params.set("range", newRange);
+     }
+
+     if (newUser && newUser.trim() !== "") {
+     params.set("user", newUser);
+     } else {
+     params.delete("user"); // 🚨 NEVER allow user=
+     }
+
+     window.location.search = params.toString();
+     }
+
+     if (rangeSelect) {
+     rangeSelect.addEventListener("change", function () {
+     const userVal = userSelect ? userSelect.value : null;
+     updateUrl(this.value, userVal);
+     });
+     }
+
+     if (userSelect) {
+     userSelect.addEventListener("change", function () {
+     const rangeVal = rangeSelect ? rangeSelect.value : null;
+     updateUrl(rangeVal, this.value);
+     });
+     }
+
+    });
+    </script>
+    """
+
+    # Fetch users for dropdown
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
+    users = c.fetchall()
+    conn.close()
+
+    # Safety fallback if DB empty
+    if not users or len(users) == 0:
+        users = [(1, "User 1")]
+
+    user_options_html = ""
+
+    for u in users:
+        uid = u[0]
+        display_name = u[1]
+
+        selected_attr = "selected" if uid == selected else ""
+
+        user_options_html += (
+            f"<option value='{uid}' {selected_attr}>"
+            f"{display_name} (User {uid})"
+            f"</option>"
+        )
+    html = f"""
                     <html>
                     <head>
                       <title>Ashwin Wellness Command Center (Harmony Science)</title>
@@ -4792,17 +5181,15 @@ for u in users:
                 </body>
                 </html>
                   """
-      if not users:
-       users = [(1, "User 1")]
 
-      return HTMLResponse(content=html)
+    return HTMLResponse(content=html)
 
 @app.get("/api/correlation/{uid}")
 def api_correlation(
     uid: int,
     tag_type: str = "migraine_start",
     lookback_minutes: int = 360,
-    limit: int = 20
+    limit: int = 20,
 ):
     """
     Correlate pattern events with user tags (non-diagnostic).
@@ -4843,7 +5230,7 @@ def api_correlation(
     all_during = Counter()
     all_baseline = Counter()
 
-    for (tid, ttype, start_ts, end_ts, note, severity, created_at) in tags:
+    for tid, ttype, start_ts, end_ts, note, severity, created_at in tags:
         # Parse start time
         try:
             start_dt = datetime.fromisoformat(start_ts.replace("Z", ""))
@@ -4857,7 +5244,9 @@ def api_correlation(
         pre_start_iso = to_sqlite_dt(pre_start_dt)
         pre_end_iso = to_sqlite_dt(start_dt)
 
-        pre_points, pre_events, pre_pc = _window_stats(uid, pre_start_iso, pre_end_iso, limit=5000)
+        pre_points, pre_events, pre_pc = _window_stats(
+            uid, pre_start_iso, pre_end_iso, limit=5000
+        )
         all_pre.update(Counter(pre_pc))
 
         # -------------------------
@@ -4874,7 +5263,9 @@ def api_correlation(
             during_start_iso = to_sqlite_dt(start_dt)
             during_end_iso = to_sqlite_dt(end_dt)
 
-            d_points, d_events, during_pc = _window_stats(uid, during_start_iso, during_end_iso, limit=5000)
+            d_points, d_events, during_pc = _window_stats(
+                uid, during_start_iso, during_end_iso, limit=5000
+            )
             all_during.update(Counter(during_pc))
 
             during = {
@@ -4891,33 +5282,37 @@ def api_correlation(
         base_start_iso = to_sqlite_dt(base_start_dt)
         base_end_iso = to_sqlite_dt(start_dt)
 
-        b_points, b_events, base_pc = _window_stats(uid, base_start_iso, base_end_iso, limit=5000)
+        b_points, b_events, base_pc = _window_stats(
+            uid, base_start_iso, base_end_iso, limit=5000
+        )
         all_baseline.update(Counter(base_pc))
 
-        tag_reports.append({
-            "tag": {
-                "id": tid,
-                "tag_type": ttype,
-                "start_ts": start_ts,
-                "end_ts": end_ts,
-                "note": note,
-                "severity": severity,
-                "created_at": created_at,
-            },
-            "pre": {
-                "window": {"start": pre_start_iso, "end": pre_end_iso},
-                "points": pre_points,
-                "events": pre_events,
-                "pattern_counts": pre_pc,
-            },
-            "during": during,
-            "baseline": {
-                "window": {"start": base_start_iso, "end": base_end_iso},
-                "points": b_points,
-                "events": b_events,
-                "pattern_counts": base_pc,
+        tag_reports.append(
+            {
+                "tag": {
+                    "id": tid,
+                    "tag_type": ttype,
+                    "start_ts": start_ts,
+                    "end_ts": end_ts,
+                    "note": note,
+                    "severity": severity,
+                    "created_at": created_at,
+                },
+                "pre": {
+                    "window": {"start": pre_start_iso, "end": pre_end_iso},
+                    "points": pre_points,
+                    "events": pre_events,
+                    "pattern_counts": pre_pc,
+                },
+                "during": during,
+                "baseline": {
+                    "window": {"start": base_start_iso, "end": base_end_iso},
+                    "points": b_points,
+                    "events": b_events,
+                    "pattern_counts": base_pc,
+                },
             }
-        })
+        )
 
     # Summary: keep it simple + useful
     return {
@@ -4944,17 +5339,22 @@ def api_correlation(
     # -------------------------------------------------
     # ---------- DETAILED PROOF PAGE ----------
     # -------------------------------------------------
+
+
 @app.get("/proof/{uid}", response_class=HTMLResponse)
 def proof(uid: int):
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("""
+    c.execute(
+        """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
         WHERE user_id = ?
         ORDER BY id ASC
-    """, (uid,))
+    """,
+        (uid,),
+    )
     rows = c.fetchall()
 
     c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id = ?", (uid,))
@@ -4968,7 +5368,7 @@ def proof(uid: int):
 
     # Split before/after
     if len(harmonies) < 2:
-      avg_before = avg_after = 0
+        avg_before = avg_after = 0
     else:
         mid = len(harmonies) // 2
         before = harmonies[:mid]
@@ -4999,6 +5399,8 @@ def proof(uid: int):
 </html>
 """
     return HTMLResponse(html)
+
+
 # -------------------------------------------------
 # ---------- DETAILED RATIOS PAGE ----------
 # -------------------------------------------------
@@ -5106,17 +5508,24 @@ def correlation(uid: int):
     noise = [r[4] for r in rows if r[4] is not None]
 
     pairs = []
+
     def add_pair(label, xs, ys):
         r = pearson(xs, ys)
         if r is not None:
             pairs.append((label, r))
 
-    if eeg and light: add_pair("EEG vs Light", eeg, light)
-    if eeg and noise: add_pair("EEG vs Noise", eeg, noise)
-    if ecg and light: add_pair("ECG vs Light", ecg, light)
-    if ecg and noise: add_pair("ECG vs Noise", ecg, noise)
-    if temp and light: add_pair("Temp vs Light", temp, light)
-    if temp and noise: add_pair("Temp vs Noise", temp, noise)
+    if eeg and light:
+        add_pair("EEG vs Light", eeg, light)
+    if eeg and noise:
+        add_pair("EEG vs Noise", eeg, noise)
+    if ecg and light:
+        add_pair("ECG vs Light", ecg, light)
+    if ecg and noise:
+        add_pair("ECG vs Noise", ecg, noise)
+    if temp and light:
+        add_pair("Temp vs Light", temp, light)
+    if temp and noise:
+        add_pair("Temp vs Noise", temp, noise)
 
     rows_html = "".join(
         f"<tr><td>{label}</td><td>{val}</td></tr>" for label, val in pairs
@@ -5183,7 +5592,9 @@ def export_full(uid: int):
     return StreamingResponse(
         generate(),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=user_{uid}_full_export.csv"},
+        headers={
+            "Content-Disposition": f"attachment; filename=user_{uid}_full_export.csv"
+        },
     )
 
 
@@ -5224,7 +5635,9 @@ def export_pdf(uid: int):
     pdf.ln(4)
     pdf.set_font("Arial", size=10)
 
-    pdf.cell(200, 5, txt="Timestamp (ET) | EEG | ECG | Temp | Light | Noise | Harmony", ln=1)
+    pdf.cell(
+        200, 5, txt="Timestamp (ET) | EEG | ECG | Temp | Light | Noise | Harmony", ln=1
+    )
     pdf.ln(2)
 
     for eeg, ecg, temp, light, noise, ts in rows:
