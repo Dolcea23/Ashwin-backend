@@ -4189,21 +4189,23 @@ c.execute("SELECT id, COALESCE(display_name, name) FROM users ORDER BY id ASC")
 users = c.fetchall()
 conn.close()
 
-      # Safety fallback if DB empty
-if not users:
-          users = [(1, "User 1")]
+# Safety fallback if DB empty
+if not users or len(users) == 0:
+    users = [(1, "User 1")]
 
 user_options_html = ""
 
-user_options_html = ""
+for u in users:
+    uid = u[0]
+    display_name = u[1]
 
-for uid, display_name in users:
-      selected_attr = "selected" if uid == selected else ""
-      user_options_html += (
-          f"<option value='{uid}' {selected_attr}>"
-          f"{display_name} (User {uid})"
-          f"</option>"
-      )
+    selected_attr = "selected" if uid == selected else ""
+
+    user_options_html += (
+        f"<option value='{uid}' {selected_attr}>"
+        f"{display_name} (User {uid})"
+        f"</option>"
+    )
 
       html = f"""
                     <html>
