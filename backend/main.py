@@ -615,7 +615,24 @@ def get_conn():
 
 # ---------- FastAPI App (ONE TIME ONLY) ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
+@app.get("/readings")
+def debug_readings():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
+
+@app.get("/sessions")
+def debug_sessions():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
+    rows = c.fetchall()
+    conn.close()
+    return rows
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -3756,7 +3773,7 @@ def board(req: Request):
     rows = get_window_rows(selected, range_key, start, end)
 
     if not rows:
-      rows = get_last_rows(selected, limit=200)
+      rows = get_window_rows(selected, "all")
 
     # ⭐ Smart fallback: if window empty, load last session
     if not rows and range_key != "session":
