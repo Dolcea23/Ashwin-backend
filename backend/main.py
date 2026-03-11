@@ -613,8 +613,13 @@ def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
 
-# ---------- FastAPI App (ONE TIME ONLY) ----------
+# ---------- FastAPI App ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
+
+# -----------------------------
+# DEBUG DATABASE ENDPOINTS
+# -----------------------------
+
 @app.get("/readings")
 def debug_readings():
     conn = get_conn()
@@ -636,7 +641,7 @@ def debug_sessions():
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # open for mobile app
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -654,28 +659,6 @@ def hello(request: Request):
 @app.get("/health")
 def health():
     return {"ok": True}
-
-# -----------------------------
-# DEBUG DATABASE ENDPOINTS
-# -----------------------------
-
-@app.get("/sessions")
-def debug_sessions():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-@app.get("/readings")
-def debug_readings():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM readings ORDER BY id DESC LIMIT 50")
-    rows = c.fetchall()
-    conn.close()
-    return rows
 
 # ✅ Mount your routes (do this ONCE, after app is created)
 
