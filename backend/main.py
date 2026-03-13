@@ -4153,7 +4153,8 @@ def board(req: Request):
         if row:
             selected = int(row[0])
         else:
-            selected = users[0][0]
+            selected = users[0][0] if users else 1
+
 
     # Get display name for selected user
     c.execute(
@@ -4163,28 +4164,34 @@ def board(req: Request):
     row = c.fetchone()
     uname = row[0] if row else f"User {selected}"
 
+
     # Selected time range
     range_key = req.query_params.get("range") or "all"
 
     start = req.query_params.get("start")
     end = req.query_params.get("end")
 
+
+    # Fetch rows
     rows = get_window_rows(selected, range_key, start, end)
 
+    # fallback to full range
     if not rows:
         rows = get_window_rows(selected, "all")
 
-    # Smart fallback
+    # fallback to session window
     if not rows and range_key != "session":
         rows = get_window_rows(selected, "session")
 
     # FINAL FALLBACK → create synthetic row so dashboard loads
     if not rows:
         rows = [
-        (0.25, 0.35, 98.6, 10, 5, datetime.utcnow().isoformat())
-    ]
+            (0.25, 0.35, 98.6, 10, 5, datetime.utcnow().isoformat())
+        ]
+
 
     event_rows = get_window_events(selected, range_key, start, end)
+
 
     # Last reading timestamp
     try:
@@ -5190,118 +5197,116 @@ def board(req: Request):
 
                                 <div class="text-center mt-3 mb-2">
      <small class="text-muted">
-Graph essentials included: clear purpose, labeled axes, consistent colors, smoothing for readability,
-Harmony-first narrative, and exportable data. All views are wellness-focused and non-diagnostic.
-</small>
-</div>
-</div>
+    Graph essentials included: clear purpose, labeled axes, consistent colors, smoothing for readability,
+    Harmony-first narrative, and exportable data. All views are wellness-focused and non-diagnostic.
+    </small>
+    </div>
+    </div>
 
-{chart_data_script}
-{charts_js}
+    {chart_data_script}
+    {charts_js}
 
-{BUMP_JS}
+    {BUMP_JS}
 
-<script>
-{LIVE_STRIP_JS}
-</script>
+    <script>
+    {LIVE_STRIP_JS}
+    </script>
 
-<script>
-{RADAR_SCRIPT_JS}
-</script>
+    <script>
+    {RADAR_SCRIPT_JS}
+    </script>
 
-<!-- LIVE AUTO REFRESH -->
-<script>
-<script>
-setInterval(() => {{
+    <!-- LIVE AUTO REFRESH -->
+    <script>
+    <script>
+    setInterval(() => {{
 
-const params = new URLSearchParams(window.location.search);
-const uid = params.get("user");
+    const params = new URLSearchParams(window.location.search);
+    const uid = params.get("user");
 
-if (!uid) return;
+    if (!uid) return;
 
-fetch("/api/board_snapshot?user=" + uid)
-.then(r => r.json())
-.then(data => {{
+    fetch("/api/board_snapshot?user=" + uid)
+    .then(r => r.json())
+    .then(data => {{
 
-if (!data.has_data) return;
+    if (!data.has_data) return;
 
-if (document.getElementById("kpiAvgHarmony"))
-document.getElementById("kpiAvgHarmony").innerText = data.kpis.avg_harmony;
+    if (document.getElementById("kpiAvgHarmony"))
+    document.getElementById("kpiAvgHarmony").innerText = data.kpis.avg_harmony;
 
-if (document.getElementById("kpiDrift"))
-document.getElementById("kpiDrift").innerText = data.kpis.avg_drift;
+    if (document.getElementById("kpiDrift"))
+    document.getElementById("kpiDrift").innerText = data.kpis.avg_drift;
 
-if (document.getElementById("kpiImprovement"))
-document.getElementById("kpiImprovement").innerText = data.kpis.improvement + "%";
+    if (document.getElementById("kpiImprovement"))
+    document.getElementById("kpiImprovement").innerText = data.kpis.improvement + "%";
 
-if (document.getElementById("kpiStability"))
-document.getElementById("kpiStability").innerText = data.kpis.stability + "%";
+    if (document.getElementById("kpiStability"))
+    document.getElementById("kpiStability").innerText = data.kpis.stability + "%";
 
-if (document.getElementById("kpiHri"))
-document.getElementById("kpiHri").innerText = data.kpis.hri;
+    if (document.getElementById("kpiHri"))
+    document.getElementById("kpiHri").innerText = data.kpis.hri;
 
-}});
+    }});
 
-}}, 4000);
-</script>
-</script>
+    }}, 4000);
+    </script>
+    </script>
 
-<script>
-{POLL_JS}
-</script>
+    <script>
+    {POLL_JS}
+    </script>
 
-<!-- SEARCH USER FILTER -->
-<script>
-function filterUsers() 
+    <!-- SEARCH USER FILTER -->
+    <script>
+    function filterUsers() {{
 
-<script>
-function filterUsers() {{
+    const input = document.getElementById("userSearch").value.toLowerCase();
+    const select = document.getElementById("userSelect");
 
-const input = document.getElementById("userSearch").value.toLowerCase();
-const select = document.getElementById("userSelect");
+    if (!select) return;
 
-if (!select) return;
+    for (let i = 0; i < select.options.length; i++) {{
 
-for (let i = 0; i < select.options.length; i++) {{
+    const txt = select.options[i].text.toLowerCase();
 
-const txt = select.options[i].text.toLowerCase();
+    select.options[i].style.display =
+    txt.includes(input) ? "" : "none";
 
-select.options[i].style.display =
-txt.includes(input) ? "" : "none";
+    }}
 
-}}
+    }}
+    </script>
 
-}}
-</script>
+    {RANGE_JS}
 
-{RANGE_JS}
+    <!-- REMEMBER LAST VIEWED USER -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {{
 
-<!-- REMEMBER LAST VIEWED USER -->
-<script>
-document.addEventListener("DOMContentLoaded", function () {{
+    const params = new URLSearchParams(window.location.search);
+    const currentUser = params.get("user");
 
-const params = new URLSearchParams(window.location.search);
-const currentUser = params.get("user");
+    if (currentUser) {{
+    localStorage.setItem("lastUser", currentUser);
+    }}
 
-if (currentUser) {{
-localStorage.setItem("lastUser", currentUser);
-}}
+    if (!currentUser) {{
 
-if (!currentUser) {{
-const last = localStorage.getItem("lastUser");
+    const last = localStorage.getItem("lastUser");
 
-if (last) {{
-window.location.search = "?user=" + last;
-}}
+    if (last) {{
+    window.location.search = "?user=" + last;
+    }}
 
-}}
+    }}
 
-}});
-</script>
+    }});
+    </script>
 
-</body>
-</html>
-"""
+    </body>
+    </html>
+    """
     return HTMLResponse(content=html)
 
 # -------------------------------------------------
