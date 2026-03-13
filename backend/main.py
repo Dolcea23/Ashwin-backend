@@ -607,7 +607,10 @@ def require_partner_key(x_ashwin_key: Optional[str]):
         raise HTTPException(status_code=401, detail="Partner key required.")
 
 
-# ---------- Database helper (shared) ----------
+# -------------------------------------------------
+# ---------- Database helper (Render + Local) -----
+# -------------------------------------------------
+
 import os
 import psycopg2
 import sqlite3
@@ -616,13 +619,14 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_conn():
 
-    # LOCAL DEV → use SQLite if DATABASE_URL not present
+    # LOCAL DEVELOPMENT (no Render DB)
     if not DATABASE_URL:
-        return sqlite3.connect("ashwin_local.db")
+        conn = sqlite3.connect("ashwin_local.db")
+        conn.row_factory = sqlite3.Row
+        return conn
 
-    # RENDER / PRODUCTION → use Postgres
+    # RENDER / PRODUCTION (PostgreSQL)
     return psycopg2.connect(DATABASE_URL)
-
 
 # ---------- FastAPI App ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
