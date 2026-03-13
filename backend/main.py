@@ -56,6 +56,13 @@ from fastapi.templating import Jinja2Templates
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
+# ---------- Optional PDF support ----------
+try:
+    from fpdf import FPDF
+    PDF_AVAILABLE = True
+except Exception:
+    PDF_AVAILABLE = False
+
 # ✅ Your router (make sure this file exists: routes/core.py)
 
 # =============================
@@ -603,11 +610,17 @@ def require_partner_key(x_ashwin_key: Optional[str]):
 # ---------- Database helper (shared) ----------
 import os
 import psycopg2
+import sqlite3
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-
 def get_conn():
+
+    # LOCAL DEV → use SQLite if DATABASE_URL not present
+    if not DATABASE_URL:
+        return sqlite3.connect("ashwin_local.db")
+
+    # RENDER / PRODUCTION → use Postgres
     return psycopg2.connect(DATABASE_URL)
 
 
@@ -3193,8 +3206,12 @@ def api_board_snapshot(
     # Apply limit if needed
     if limit and len(rows) > limit:
         rows = rows[-limit:]
+
+    # FINAL FALLBACK (prevents empty board)
     if not rows:
-        rows = [(0.0, 0.0, 98.6, 0.0, 0.0, "1970-01-01T00:00:00")]
+        rows = [
+        (0.25, 0.35, 98.6, 10, 5, datetime.utcnow().isoformat())
+    ]
 
     # rest of function continues...
 
@@ -3705,30 +3722,62 @@ def _sig_from_pattern_counts(pc: dict) -> str:
 def review_queue_run(
     uid: int, hours: int = 6, min_repeats: int = 3, range_q: str = "day"
 ):
-    ...
     """
     Build review candidates from repeated pattern signatures in recent events.
     Stores candidates into pattern_review_queue for later review (non-diagnostic).
     """
-    rows = _fetch_rows_for_patterns(uid, limit=6000, range_key=range)
+# -------------------------------------------------
+# ---------- FETCH ROWS FOR PATTERN ENGINE ----------
+# -------------------------------------------------
+
+def _fetch_rows_for_patterns(uid: int, limit: int = 6000, range_key: str = "day"):
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute(
+        """
+        SELECT eeg, ecg, temperature, light, noise, timestamp
+        FROM readings
+        WHERE user_id=?
+        ORDER BY timestamp DESC
+        LIMIT ?
+        """,
+        (uid, limit),
+    )
+
+    rows = c.fetchall()
+    conn.close()
+
+    rows = [tuple(r) for r in rows]
+    rows.reverse()
+
+    return rows
+@app.post("/review_queue/run/{uid}")
+def review_queue_run(uid: int, hours: int = 6, min_repeats: int = 3, range_q: str = "day"):
+
+    rows = _fetch_rows_for_patterns(uid, limit=6000, range_key=range_q)
+
     if not rows:
         return {"ok": True, "inserted": 0, "reason": "no rows"}
 
     points, events = build_live_points_and_events(rows)
+
     if not events:
         return {"ok": True, "inserted": 0, "reason": "no events"}
 
     now = datetime.utcnow()
     cutoff = now - timedelta(hours=int(hours))
 
-    # Filter events by time if parseable; otherwise keep (MVP safe)
+    # Filter events by time
     recent = []
+
     for e in events:
         ts = e.get("t") or e.get("ts")
+
         if not ts:
             continue
 
-        dt = None
         try:
             dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
         except Exception:
@@ -3740,13 +3789,16 @@ def review_queue_run(
     if not recent:
         return {"ok": True, "inserted": 0, "reason": "no recent events"}
 
-    # Bucket by minute-ish key (works best if ts is ISO)
+    # Bucket by minute-ish key
     buckets = {}
+
     for e in recent:
         ts = e.get("t") or e.get("ts") or ""
         pid = e.get("pattern_id") or e.get("id")
+
         if not pid:
             continue
+
         key = ts[:16]
         buckets.setdefault(key, []).append(pid)
 
@@ -3754,9 +3806,12 @@ def review_queue_run(
     sig_meta = {}
 
     for k, pids in buckets.items():
+
         pc = dict(Counter(pids))
         sig = _sig_from_pattern_counts(pc)
+
         sig_counter[sig] += 1
+
         if sig not in sig_meta:
             sig_meta[sig] = {"pc": pc, "ws": k, "we": k}
         else:
@@ -3764,9 +3819,11 @@ def review_queue_run(
 
     conn = get_conn()
     c = conn.cursor()
+
     inserted = 0
 
     for sig, reps in sig_counter.items():
+
         if reps < int(min_repeats):
             continue
 
@@ -3775,26 +3832,27 @@ def review_queue_run(
         ws = meta.get("ws", "")
         we = meta.get("we", "")
 
-        # Avoid duplicates that are still "new"
         c.execute(
             """
-          SELECT id FROM pattern_review_queue
-          WHERE user_id=? AND sig=? AND status='new'
-          LIMIT 1
-        """,
+            SELECT id FROM pattern_review_queue
+            WHERE user_id=? AND sig=? AND status='new'
+            LIMIT 1
+            """,
             (uid, sig),
         )
+
         if c.fetchone():
             continue
 
         c.execute(
             """
-          INSERT INTO pattern_review_queue
-          (user_id, sig, window_start, window_end, event_count, pattern_counts_json, status)
-          VALUES (?, ?, ?, ?, ?, ?, 'new')
-        """,
+            INSERT INTO pattern_review_queue
+            (user_id, sig, window_start, window_end, event_count, pattern_counts_json, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'new')
+            """,
             (uid, sig, ws, we, int(reps), json.dumps(pc)),
         )
+
         inserted += 1
 
     conn.commit()
@@ -3806,47 +3864,6 @@ def review_queue_run(
         "scanned_events": len(recent),
         "unique_sigs": len(sig_counter),
     }
-
-
-@app.get("/review_queue/{uid}")
-def review_queue_get(uid: int, status: str = "new", limit: int = 50):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        """
-      SELECT id, sig, window_start, window_end, event_count, pattern_counts_json, suggested_label, status, created_at
-      FROM pattern_review_queue
-      WHERE user_id=? AND status=?
-      ORDER BY datetime(created_at) DESC
-      LIMIT ?
-    """,
-        (uid, status, limit),
-    )
-    rows = c.fetchall()
-    conn.close()
-
-    items = []
-    for rid, sig, ws, we, ec, pcj, label, st, created_at in rows:
-        try:
-            pc = json.loads(pcj) if pcj else {}
-        except Exception:
-            pc = {}
-        items.append(
-            {
-                "id": rid,
-                "sig": sig,
-                "window": {"start": ws, "end": we},
-                "repeats": ec,
-                "pattern_counts": pc,
-                "suggested_label": label,
-                "status": st,
-                "created_at": created_at,
-            }
-        )
-
-    return {"user_id": uid, "status": status, "items": items}
-
-
 @app.get("/debug/session_state/{uid}")
 def debug_session_state(uid: int):
 
@@ -4153,9 +4170,15 @@ def board(req: Request):
     if not rows:
         rows = get_window_rows(selected, "all")
 
-    # ⭐ Smart fallback: if window empty, load last session
+    # Smart fallback
     if not rows and range_key != "session":
         rows = get_window_rows(selected, "session")
+
+    # FINAL FALLBACK → create synthetic row so dashboard loads
+    if not rows:
+        rows = [
+        (0.25, 0.35, 98.6, 10, 5, datetime.utcnow().isoformat())
+    ]
 
     event_rows = get_window_events(selected, range_key, start, end)
 
@@ -4659,11 +4682,20 @@ def board(req: Request):
                         <!-- User + Time Range selector -->
                       <form id="filtersForm" class="row g-2 mb-3" onsubmit="return false;">
                   <div class="col-md-4">
-                    <label class="form-label fw-semibold">Switch user</label>
+                    <label class="form-label fw-semibold">Search user</label>
+
+                    <input
+                    id="userSearch"
+                    type="text"
+                    placeholder="🔍 Search user..."
+                    onkeyup="filterUsers()"
+                    class="form-control mb-2"
+                    />
+
                     <select id="userSelect" name="user" class="form-select">
-                  {user_options_html}
-                  </select>
-                  </div>
+                    {user_options_html}
+                    </select>
+                    </div>
 
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Time range</label>
@@ -5153,38 +5185,161 @@ def board(req: Request):
                         </div>
 
                                 <div class="text-center mt-3 mb-2">
-                  <small class="text-muted">
-                    Graph essentials included: clear purpose, labeled axes, consistent colors, smoothing for readability,
-                    Harmony-first narrative, and exportable data. All views are wellness-focused and non-diagnostic.
-                  </small>
-                </div>
-                </div>
+     <small class="text-muted">
+Graph essentials included: clear purpose, labeled axes, consistent colors, smoothing for readability,
+Harmony-first narrative, and exportable data. All views are wellness-focused and non-diagnostic.
+</small>
+</div>
+</div>
 
-              
-                {chart_data_script}
-                {charts_js}
+{chart_data_script}
+{charts_js}
 
-                {BUMP_JS}
+{BUMP_JS}
 
-                <script>
-                {LIVE_STRIP_JS}
-                </script>
+<script>
+{LIVE_STRIP_JS}
+</script>
 
-                <script>
-                {RADAR_SCRIPT_JS}
-                </script>
+<script>
+{RADAR_SCRIPT_JS}
+</script>
 
-                <script>
-                {POLL_JS}
-                </script>
+<!-- LIVE AUTO REFRESH -->
+<script>
+<script>
+setInterval(() => {{
 
-                {RANGE_JS}
+const params = new URLSearchParams(window.location.search);
+const uid = params.get("user");
 
-                </body>
-                </html>
-                  """
+if (!uid) return;
 
+fetch("/api/board_snapshot?user=" + uid)
+.then(r => r.json())
+.then(data => {{
+
+if (!data.has_data) return;
+
+if (document.getElementById("kpiAvgHarmony"))
+document.getElementById("kpiAvgHarmony").innerText = data.kpis.avg_harmony;
+
+if (document.getElementById("kpiDrift"))
+document.getElementById("kpiDrift").innerText = data.kpis.avg_drift;
+
+if (document.getElementById("kpiImprovement"))
+document.getElementById("kpiImprovement").innerText = data.kpis.improvement + "%";
+
+if (document.getElementById("kpiStability"))
+document.getElementById("kpiStability").innerText = data.kpis.stability + "%";
+
+if (document.getElementById("kpiHri"))
+document.getElementById("kpiHri").innerText = data.kpis.hri;
+
+}});
+
+}}, 4000);
+</script>
+</script>
+
+<script>
+{POLL_JS}
+</script>
+
+<!-- SEARCH USER FILTER -->
+<script>
+function filterUsers() 
+
+<script>
+function filterUsers() {{
+
+const input = document.getElementById("userSearch").value.toLowerCase();
+const select = document.getElementById("userSelect");
+
+if (!select) return;
+
+for (let i = 0; i < select.options.length; i++) {{
+
+const txt = select.options[i].text.toLowerCase();
+
+select.options[i].style.display =
+txt.includes(input) ? "" : "none";
+
+}}
+
+}}
+</script>
+
+{RANGE_JS}
+
+<!-- REMEMBER LAST VIEWED USER -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {{
+
+const params = new URLSearchParams(window.location.search);
+const currentUser = params.get("user");
+
+if (currentUser) {{
+localStorage.setItem("lastUser", currentUser);
+}}
+
+if (!currentUser) {{
+const last = localStorage.getItem("lastUser");
+
+if (last) {{
+window.location.search = "?user=" + last;
+}}
+
+}}
+
+}});
+</script>
+
+</body>
+</html>
+"""
     return HTMLResponse(content=html)
+
+# -------------------------------------------------
+# ---------- WINDOW STATS HELPER ----------
+# -------------------------------------------------
+
+def _window_stats(uid, start_iso, end_iso, limit=5000):
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute(
+        """
+        SELECT eeg, ecg, temperature, light, noise, timestamp
+        FROM readings
+        WHERE user_id=?
+        AND datetime(timestamp) >= datetime(?)
+        AND datetime(timestamp) <= datetime(?)
+        ORDER BY datetime(timestamp) ASC
+        LIMIT ?
+        """,
+        (uid, start_iso, end_iso, limit),
+    )
+
+    rows = c.fetchall()
+    conn.close()
+
+    # Use your existing pattern engine
+    points, events = build_live_points_and_events(rows)
+
+    # Count pattern occurrences
+    pattern_counts = {}
+
+    for e in events:
+        pid = e.get("pattern_id")
+
+        if not pid:
+            continue
+
+        pattern_counts[pid] = pattern_counts.get(pid, 0) + 1
+
+    return len(points), len(events), pattern_counts
 
 @app.get("/api/correlation/{uid}")
 def api_correlation(
@@ -5663,24 +5818,21 @@ def inject_testdata():
     """
     Injects demo readings for quick dashboard demos.
     """
+
     conn = get_conn()
     c = conn.cursor()
 
-    # Create demo user if missing
-    c.execute("SELECT id FROM users WHERE name='demo@example.com'")
+    # Use latest existing user
+    c.execute("SELECT id FROM users ORDER BY id DESC LIMIT 1")
     row = c.fetchone()
-    if row:
-        uid = row[0]
-    else:
-        now = datetime.utcnow().isoformat()
-        c.execute(
-            "INSERT INTO users(name, pin, created_at, display_name) VALUES (?,?,?,?)",
-            ("demo@example.com", "1111", now, "Demo User"),
-        )
-        conn.commit()
-        uid = c.lastrowid
 
-    # Demo session
+    if not row:
+        conn.close()
+        return {"error": "no users exist"}
+
+    uid = row[0]
+
+    # Start demo session
     session = start_autosession(uid, "Demo Session")
     sid = session["session_id"]
 
@@ -5688,6 +5840,7 @@ def inject_testdata():
 
     for i in range(80):
         ts = (datetime.utcnow() - timedelta(minutes=80 - i)).isoformat()
+
         eeg = round(0.4 + random.random() * 0.9, 3)
         ecg = round(0.5 + random.random() * 0.8, 3)
         temp = round(98.2 + random.random() * 1.2, 2)
@@ -5696,7 +5849,8 @@ def inject_testdata():
 
         c.execute(
             """
-            INSERT INTO readings(user_id, session_id, eeg, ecg, temperature, light, noise, timestamp)
+            INSERT INTO readings
+            (user_id, session_id, eeg, ecg, temperature, light, noise, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (uid, sid, eeg, ecg, temp, light, noise, ts),
@@ -5706,7 +5860,6 @@ def inject_testdata():
     conn.close()
 
     return {"status": "ok", "user_id": uid, "session_id": sid}
-
 
 # -------------------------------------------------
 # ---------- ADMIN RESET ----------
