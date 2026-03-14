@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 from pathlib import Path
 print("🚀 RUNNING BACKEND MAIN.PY")
@@ -19,6 +18,8 @@ try:
     auto_backup.perform_backup()
 except Exception as e:
     print("⚠️ Backup module missing or failed:", e)
+UTC = ZoneInfo("UTC")
+ET = ZoneInfo("America/New_York")
 
 # ---------- Standard Library ----------
 import os
@@ -691,34 +692,32 @@ def health():
     return {"ok": True}
 
 def ensure_default_user():
-
     conn = get_conn()
     c = conn.cursor()
 
     c.execute("SELECT id FROM users LIMIT 1")
 
     if not c.fetchone():
-
         if DATABASE_URL:
-            # PostgreSQL (Render)
             c.execute(
-                "INSERT INTO users (login_name, name, display_name) VALUES (%s, %s, %s)",
-                ("system", "default", "Default User")
+                "INSERT INTO users (login_name, name, display_name) VALUES (%s,%s,%s)",
+                ("system","default","Default User")
             )
         else:
-            # SQLite (local)
             c.execute(
-                "INSERT INTO users (login_name, name, display_name) VALUES (?, ?, ?)",
-                ("system", "default", "Default User")
+                "INSERT INTO users (login_name, name, display_name) VALUES (?,?,?)",
+                ("system","default","Default User")
             )
 
         conn.commit()
 
     conn.close()
 
+
 @app.on_event("startup")
 def startup_event():
     ensure_default_user()
+
 
 
 # ✅ Mount your routes (do this ONCE, after app is created)
@@ -741,8 +740,7 @@ def startup_event():
 # -----------------------------
 @app.get("/")
 def root():
-    return RedirectResponse(url="//board?range=24h")
-
+    return RedirectResponse(url="/board?range=24h")
 
 @app.get("/dashboard")
 def dashboard(user: int = Query(1, ge=1)):
