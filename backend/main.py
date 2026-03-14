@@ -646,9 +646,14 @@ app.add_middleware(
 def debug_db():
     return {"database_url": os.getenv("DATABASE_URL")}
 
-
-
-
+@app.get("/debug/users")
+def debug_users():
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT * FROM users")
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
 @app.get("/readings")
 def debug_readings():
@@ -684,6 +689,36 @@ def hello(request: Request):
 @app.get("/health")
 def health():
     return {"ok": True}
+
+def ensure_default_user():
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    c.execute("SELECT id FROM users LIMIT 1")
+
+    if not c.fetchone():
+
+        if DATABASE_URL:
+            # PostgreSQL (Render)
+            c.execute(
+                "INSERT INTO users (login_name, name, display_name) VALUES (%s, %s, %s)",
+                ("system", "default", "Default User")
+            )
+        else:
+            # SQLite (local)
+            c.execute(
+                "INSERT INTO users (login_name, name, display_name) VALUES (?, ?, ?)",
+                ("system", "default", "Default User")
+            )
+
+        conn.commit()
+
+    conn.close()
+
+@app.on_event("startup")
+def startup_event():
+    ensure_default_user()
 
 
 # ✅ Mount your routes (do this ONCE, after app is created)
@@ -4125,45 +4160,42 @@ def board(req: Request):
 
     # SAFEGUARD: ensure at least one user exists
     if not users:
-        c.execute(
-            "INSERT INTO users (name, display_name) VALUES (?, ?)",
-            ("default", "Default User")
-        )
-        conn.commit()
 
-        c.execute("SELECT id, COALESCE(display_name, name) FROM users")
-        users = c.fetchall()
+        if DATABASE_URL:
+            c.execute(
+        "SELECT COALESCE(display_name, name) FROM users WHERE id=%s",
+        (selected,)
+    )
+    else:
+            c.execute(
+        "SELECT COALESCE(display_name, name) FROM users WHERE id=?",
+        (selected,)
+    )
+
+    conn.commit()
+
+    c.execute("SELECT id, COALESCE(display_name, name) FROM users")
+    users = c.fetchall()
 
     # Determine selected user
     q_user = req.query_params.get("user")
 
     if q_user:
         selected = int(q_user)
+
     else:
-        # try newest reading user
+    # try newest reading user
         row = c.execute("""
-            SELECT user_id
-            FROM readings
-            ORDER BY id DESC
-            LIMIT 1
-        """).fetchone()
+        SELECT user_id
+        FROM readings
+        ORDER BY id DESC
+        LIMIT 1
+    """).fetchone()
 
-        if row:
-            selected = int(row[0])
-        else:
-            selected = users[0][0]
-
-    # Ensure at least one user exists
-        if not users:
-            c.execute(
-        "INSERT INTO users (name, display_name) VALUES (?, ?)",
-        ("default", "Default User")
-    )
-    conn.commit()
-
-    c.execute("SELECT id, COALESCE(display_name, name) FROM users")
-    users = c.fetchall()
-
+    if row:
+        selected = int(row[0])
+    else:
+        selected = users[0][0]
 
     # Get display name for selected user
     c.execute(
