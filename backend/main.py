@@ -4201,9 +4201,6 @@ def board(req: Request):
         last_ts_et = "-"
     # ---------- Build numeric arrays safely ----------
 
-    if not rows:
-        rows = [(0.0, 0.0, 98.6, 0.0, 0.0, "1970-01-01T00:00:00")]
-
     times_raw = []
     eeg_vals = []
     ecg_vals = []
