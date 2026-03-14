@@ -4119,11 +4119,11 @@ def board(req: Request):
     conn = get_conn()
     c = conn.cursor()
 
-    # Get all users with a friendly display name if present
+    # Get users
     c.execute("SELECT id, COALESCE(display_name, name) FROM users")
     users = c.fetchall()
 
-    # ⭐ If no users exist, create a default user so the board never breaks
+    # SAFEGUARD: ensure at least one user exists
     if not users:
         c.execute(
             "INSERT INTO users (name, display_name) VALUES (?, ?)",
@@ -4134,27 +4134,35 @@ def board(req: Request):
         c.execute("SELECT id, COALESCE(display_name, name) FROM users")
         users = c.fetchall()
 
-    # ⭐ ALWAYS LOAD DASHBOARD
+    # Determine selected user
     q_user = req.query_params.get("user")
 
     if q_user:
         selected = int(q_user)
-
     else:
-        # Automatically select the user with the latest reading
-        row = c.execute(
-            """
+        # try newest reading user
+        row = c.execute("""
             SELECT user_id
             FROM readings
             ORDER BY id DESC
             LIMIT 1
-            """
-        ).fetchone()
+        """).fetchone()
 
         if row:
             selected = int(row[0])
         else:
-            selected = users[0][0] if users else 1
+            selected = users[0][0]
+
+    # Ensure at least one user exists
+        if not users:
+            c.execute(
+        "INSERT INTO users (name, display_name) VALUES (?, ?)",
+        ("default", "Default User")
+    )
+    conn.commit()
+
+    c.execute("SELECT id, COALESCE(display_name, name) FROM users")
+    users = c.fetchall()
 
 
     # Get display name for selected user
