@@ -1,6 +1,7 @@
+
 from __future__ import annotations
 from pathlib import Path
-
+print("🚀 RUNNING BACKEND MAIN.PY")
 BASE_DIR = Path(__file__).resolve().parent
 # -*- coding: utf-8 -*-
 
