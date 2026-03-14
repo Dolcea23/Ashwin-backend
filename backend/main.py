@@ -1320,6 +1320,10 @@ def end_sleep_session(user_id: int):
         "end_time": now,
     }
 
+@app.post("/readings")
+def readings_alias(d: SensorReadingIn):
+    return ingest_raw(d)
+
 
 # -------------------------------------------------
 # ---------- EVENTS ----------
