@@ -1442,7 +1442,7 @@ def ingest_raw(d: SensorReadingIn):
 
     conn = get_conn()
     c = conn.cursor()
-
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     sid = None
 
     # ----------------------------
