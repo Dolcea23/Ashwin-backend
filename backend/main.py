@@ -697,19 +697,12 @@ def ensure_default_user():
     c.execute("SELECT id FROM users LIMIT 1")
 
     if not c.fetchone():
-        if DATABASE_URL:
-            c.execute(
-                "INSERT INTO users (login_name, name, display_name) VALUES (%s,%s,%s)",
-                ("system","default","Default User")
-            )
-        else:
-            c.execute(
-                "INSERT INTO users (login_name, name, display_name) VALUES (%s,%s,%s)",
-                ("system","default","Default User")
-            )
+        c.execute(
+            "INSERT INTO users (login_name, name, display_name) VALUES (%s,%s,%s)",
+            ("system","default","Default User")
+        )
 
-        conn.commit()
-
+    conn.commit()
     conn.close()
 
 
@@ -3220,10 +3213,10 @@ def patterns(
 def api_board_snapshot(
     user: int = Query(1),
     range_key: str = Query("session", alias="range"),
-    limit: int = Query(2000),
+    limit: int = Query(10000),
     start: str | None = Query(default=None),
     end: str | None = Query(default=None),
-):
+    ):
     """
     Live snapshot for /board (no refresh).
     Returns: KPIs + charts + patterns + zones + radar + table HTML.
@@ -3289,17 +3282,17 @@ def api_board_snapshot(
 
         times_raw.append(parse_iso_to_et(ts))
 
-    eeg_vals.append(safe(eeg))
-    ecg_vals.append(safe(ecg))
-    temp_vals.append(safe(temp, 98.6))
-    light_vals.append(safe(light))
-    noise_vals.append(safe(noise))
+        eeg_vals.append(safe(eeg))
+        ecg_vals.append(safe(ecg))
+        temp_vals.append(safe(temp, 98.6))
+        light_vals.append(safe(light))
+        noise_vals.append(safe(noise))
 
-    harmonies.append(calc_harmony(eeg, ecg, temp))
+        harmonies.append(calc_harmony(eeg, ecg, temp))
 
-    # Emotional / Autonomic signal
-    autonomic = abs(safe(eeg) - safe(ecg))
-    autonomic_vals.append(autonomic)
+        # Emotional / Autonomic signal
+        autonomic = abs(safe(eeg) - safe(ecg))
+        autonomic_vals.append(autonomic)
 
     # -------------------------------------------------
     # 4) Drift
@@ -3354,22 +3347,25 @@ def api_board_snapshot(
     # 7) Latest timestamp (range-limited)
     # -------------------------------------------------
 
-    last_ts_et = parse_iso_to_et(rows[-1][5]) if rows else "-"
+    last_ts_et = parse_iso_to_et(rows[0][5]) if rows else "-"
 
     # -------------------------------------------------
     # 8) Charts
     # -------------------------------------------------
 
-    chart_times, chart_harmonies, chart_eeg, chart_ecg = downsample_and_smooth(
-        times_raw, harmonies, eeg_vals, ecg_vals, step=5, window=20
-    )
+    chart_times = times_raw
+    chart_harmonies = harmonies
+    chart_eeg = eeg_vals
+    chart_ecg = ecg_vals
 
     # -------------------------------------------------
     # 9) Table (last 40 rows)
     # -------------------------------------------------
 
     raw_rows_html = ""
+
     for (eeg, ecg, temp, light, noise, ts), h in zip(rows[-40:], harmonies[-40:]):
+
         raw_rows_html += (
             f"<tr>"
             f"<td>{parse_iso_to_et(ts)}</td>"
@@ -3380,51 +3376,50 @@ def api_board_snapshot(
             f"<td>{safe(noise):.2f}</td>"
             f"<td>{h:.2f}</td>"
             f"</tr>"
-        )
+    )
 
-        # -------------------------------------------------
-        # FINAL UNIFIED RESPONSE
-        # -------------------------------------------------
+    # -------------------------------------------------
+    # FINAL UNIFIED RESPONSE
+    # -------------------------------------------------
 
-        return JSONResponse(
-            {
-                "has_data": True,
-                "user": user,
-                "range": range_key,
-                "last_ts_et": last_ts_et,
-                "kpis": {
-                    "avg_harmony": avg_harmony,
-                    "min_h": min_h,
-                    "max_h": max_h,
-                    "avg_before": avg_before,
-                    "avg_after": avg_after,
-                    "improvement": improvement,
-                    "stability": stability,
-                    "hri": hri,
-                    "avg_drift": avg_drift,
-                    "max_drift": max_drift,
-                    "zone_label": zone.get("zone_label", ""),
-                    "zone_conf": zone.get("confidence", 0.0),
-                },
-                "charts": {
-                    "times": chart_times,
-                    "harmonies": chart_harmonies,
-                    "eeg": chart_eeg,
-                    "ecg": chart_ecg,
-                },
-                "patterns": {
-                    "events": events,
-                    "pattern_counts": dict(pat_counts),
-                },
-                "zones": {
-                    "dominant_zone": dominant_zone,
-                    "zone_counts": dict(zone_counts),
-                },
-                "radar_frames": radar_frames,
-                "tables": {"raw_rows_html": raw_rows_html},
-            }
-        )
-
+    return JSONResponse(
+    {
+        "has_data": True,
+        "user": user,
+        "range": range_key,
+        "last_ts_et": last_ts_et,
+        "kpis": {
+            "avg_harmony": avg_harmony,
+            "min_h": min_h,
+            "max_h": max_h,
+            "avg_before": avg_before,
+            "avg_after": avg_after,
+            "improvement": improvement,
+            "stability": stability,
+            "hri": hri,
+            "avg_drift": avg_drift,
+            "max_drift": max_drift,
+            "zone_label": zone.get("zone_label", ""),
+            "zone_conf": zone.get("confidence", 0.0),
+        },
+        "charts": {
+            "times": chart_times,
+            "harmonies": chart_harmonies,
+            "eeg": chart_eeg,
+            "ecg": chart_ecg,
+        },
+        "patterns": {
+            "events": events,
+            "pattern_counts": dict(pat_counts),
+        },
+        "zones": {
+            "dominant_zone": dominant_zone,
+            "zone_counts": dict(zone_counts),
+        },
+        "radar_frames": radar_frames,
+        "tables": {"raw_rows_html": raw_rows_html},
+    }
+)
 
 # ---------- Correlation Helper (Pearson) ----------
 def pearson(xs: list, ys: list):
@@ -4103,7 +4098,6 @@ def get_window_rows(
     )
 
     rows = c.fetchall()
-    rows.reverse()  # restore chronological order
 
     conn.close()
     return rows
@@ -4227,7 +4221,7 @@ def board(req: Request):
 
     # Last reading timestamp
     try:
-        last_ts_et = parse_iso_to_et(rows[-1][5]) if rows else "-"
+        last_ts_et = parse_iso_to_et(rows[0][5]) if rows else "-"
     except Exception:
         last_ts_et = "-"
     # ---------- Build numeric arrays safely ----------
