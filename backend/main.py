@@ -5553,28 +5553,30 @@ def api_correlation(
 # ---------- DETAILED PROOF PAGE ----------
 # -------------------------------------------------
 
+
 @app.get("/proof/{uid}", response_class=HTMLResponse)
 def proof(uid: int):
     conn = get_conn()
     c = conn.cursor()
 
     c.execute(
-    """
-     SELECT eeg, ecg, temperature, light, noise, timestamp
-     FROM readings
-     WHERE user_id = %s
-     ORDER BY id ASC
-     """,
-     (uid,),
-     )
+        """
+        SELECT eeg, ecg, temperature, light, noise, timestamp
+        FROM readings
+        WHERE user_id = %s
+        ORDER BY id ASC
+    """,
+        (uid,),
+    )
     rows = c.fetchall()
 
     c.execute(
     "SELECT COALESCE(display_name, name) FROM users WHERE id = %s",
-     (uid,)
-     )
+    (uid,)
+    )
     uname_row = c.fetchone()
     conn.close()
+
 
     uname = uname_row[0] if uname_row else f"User {uid}"
 
@@ -5592,27 +5594,27 @@ def proof(uid: int):
         avg_after = round(mean(after), 2) if after else 0
 
     html = f"""
- <html>
- <head>
- <title>Ashwin Proof of Harmony</title>
- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
- </head>
- <body class="p-4" style="font-family:Segoe UI;background:#f5f7fa;">
- <h2>Proof of Harmony - {uname} (User {uid})</h2>
- <p class="text-muted">Clear before/after evidence from Ashwin Harmony Index.</p>
+<html>
+  <head>
+    <title>Ashwin Proof of Harmony</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+  <body class="p-4" style="font-family:Segoe UI;background:#f5f7fa;">
+    <h2>Proof of Harmony - {uname} (User {uid})</h2>
+    <p class="text-muted">Clear before/after evidence from Ashwin Harmony Index.</p>
 
- <div class="card p-4 mb-4">
- <h4 class="mb-3">Before -> After Harmony Change</h4>
- <canvas id="proofBar"></canvas>
- </div>
+    <div class="card p-4 mb-4">
+      <h4 class="mb-3">Before -> After Harmony Change</h4>
+      <canvas id="proofBar"></canvas>
+    </div>
 
- <div class="card p-4 mb-4">
- <h4 class="mb-3">Full Harmony Timeline</h4>
- <canvas id="proofLine"></canvas>
- </div>
- </body>
- </html>
- """
+    <div class="card p-4 mb-4">
+      <h4 class="mb-3">Full Harmony Timeline</h4>
+      <canvas id="proofLine"></canvas>
+    </div>
+  </body>
+</html>
+"""
     return HTMLResponse(html)
 
 
