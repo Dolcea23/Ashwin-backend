@@ -867,8 +867,15 @@ def init_db():
         pin TEXT,
         display_name TEXT,
         created_at TEXT
-    )
-    """)
+        )
+        """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS devices(
+        device_id TEXT PRIMARY KEY,
+        user_id INTEGER
+        )
+        """)
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS sessions(
@@ -877,22 +884,8 @@ def init_db():
         label TEXT,
         start_time TEXT,
         end_time TEXT
-    )
-    """)
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS readings(
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER,
-        session_id INTEGER,
-        eeg REAL,
-        ecg REAL,
-        temperature REAL,
-        light REAL,
-        noise REAL,
-        timestamp TEXT
-    )
-    """)
+        )
+        """)
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS life_events(
@@ -3773,7 +3766,7 @@ def _fetch_rows_for_patterns(uid: int, limit: int = 6000, range_key: str = "day"
         FROM readings
         WHERE user_id=%s
         ORDER BY timestamp DESC
-        LIMIT ?
+        LIMIT %s
         """,
         (uid, limit),
     )
@@ -4597,14 +4590,16 @@ def board(req: Request):
     RADAR_SCRIPT_JS = globals().get("RADAR_SCRIPT_JS", "")
 
     POLL_JS = r"""
-const POLL_INTERVAL = 2000;
+    const POLL_INTERVAL = 2000;
 
-async function pollLiveSession() {
+    async function pollLiveSession() {
 
  const params = new URLSearchParams(window.location.search);
  const uid = params.get("user");
+ const range = params.get("range");
 
  if (!uid) return;
+ if (range !== "session") return;
 
  try {
 
