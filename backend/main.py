@@ -4482,107 +4482,110 @@ def board(req: Request):
     # ---------- Charts JS (SAFE TEMPLATE) ----------
 
     charts_js = r"""
-     <script>
+    <script>
     (function () {
-     const D = window.CHART_DATA || {};
+    const D = window.CHART_DATA || {};
 
-     function ctx(id) {
-     const el = document.getElementById(id);
-     return el ? el.getContext('2d') : null;
-     }
+    function ctx(id) {
+    const el = document.getElementById(id);
+    return el ? el.getContext('2d') : null;
+    }
 
-     // Harmony Summary
-     const c1 = ctx('summaryHarmonyChart');
-     if (c1 && (D.times || []).length) {
-     window.summaryHarmonyChartObj = new Chart(c1, {
-     type: 'line',
-     data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Harmony Summary
+    const c1 = ctx('summaryHarmonyChart');
+    if (c1 && (D.times || []).length) {
+    window.summaryHarmonyChart = new Chart(c1, {
+    type: 'line',
+    data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     // Harmony Trend
-     const c2 = ctx('harmonyTrendChart');
-     if (c2 && (D.times || []).length) {
-     window.harmonyTrendChartObj = new Chart(c2, {
-     type: 'line',
-     data: {
-     labels: D.times || [],
-     datasets: [
-     { label: 'Harmony', data: D.harmonies || [], tension: 0.25 },
-     { label: 'EEG-like', data: D.eeg || [], tension: 0.25 },
-     { label: 'ECG-like', data: D.ecg || [], tension: 0.25 }
-     ]
-     },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Harmony Trend
+    const c2 = ctx('harmonyTrendChart');
+    if (c2 && (D.times || []).length) {
+    window.harmonyTrendChart = new Chart(c2, {
+    type: 'line',
+    data: {
+        labels: D.times || [],
+        datasets: [
+        { label: 'Harmony', data: D.harmonies || [], tension: 0.25 },
+        { label: 'EEG-like', data: D.eeg || [], tension: 0.25 },
+        { label: 'ECG-like', data: D.ecg || [], tension: 0.25 }
+        ]
+    },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     // Proof
-     const c3 = ctx('proofCompareChart');
-     if (c3) {
-     window.proofCompareChartObj = new Chart(c3, {
-     type: 'bar',
-     data: { labels: ['Before','After'], datasets: [{ label: 'Avg Harmony', data: [D.avg_before || 0, D.avg_after || 0] }] },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Proof
+    const c3 = ctx('proofCompareChart');
+    if (c3) {
+    window.proofCompareChart = new Chart(c3, {
+    type: 'bar',
+    data: { labels: ['Before','After'], datasets: [{ label: 'Avg Harmony', data: [D.avg_before || 0, D.avg_after || 0] }] },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     const c4 = ctx('proofHarmonyChart');
-     if (c4 && (D.times || []).length) {
-     window.proofHarmonyChartObj = new Chart(c4, {
-     type: 'line',
-     data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
-     options: { responsive: true, animation: false }
-     });
-     }
+    const c4 = ctx('proofHarmonyChart');
+    if (c4 && (D.times || []).length) {
+    window.proofHarmonyChart = new Chart(c4, {
+    type: 'line',
+    data: { labels: D.times || [], datasets: [{ label: 'Harmony', data: D.harmonies || [], tension: 0.25 }] },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     // Fields
-     const brain = ctx('brainFieldChart');
-     if (brain && (D.times || []).length) {
-     window.brainFieldChartObj = new Chart(brain, {
-     type: 'line',
-     data: { labels: D.times || [], datasets: [{ label: 'EEG-like', data: D.eeg || [], tension: 0.25 }] },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Brain Field
+    const brain = ctx('brainFieldChart');
+    if (brain && (D.times || []).length) {
+    window.brainFieldChart = new Chart(brain, {
+    type: 'line',
+    data: { labels: D.times || [], datasets: [{ label: 'EEG-like', data: D.eeg || [], tension: 0.25 }] },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     const cardiac = ctx('cardiacFieldChart');
-     if (cardiac && (D.times || []).length) {
-     window.cardiacFieldChartObj = new Chart(cardiac, {
-     type: 'line',
-     data: { labels: D.times || [], datasets: [{ label: 'ECG-like', data: D.ecg || [], tension: 0.25 }] },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Cardiac Field
+    const cardiac = ctx('cardiacFieldChart');
+    if (cardiac && (D.times || []).length) {
+    window.cardiacFieldChart = new Chart(cardiac, {
+    type: 'line',
+    data: { labels: D.times || [], datasets: [{ label: 'ECG-like', data: D.ecg || [], tension: 0.25 }] },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     const thermal = ctx('thermalFieldChart');
-     if (thermal && (D.times || []).length) {
-     window.thermalFieldChartObj = new Chart(thermal, {
-     type: 'line',
-     data: { labels: D.times || [], datasets: [{ label: 'Temperature', data: D.temp || [], tension: 0.25 }] },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Thermal Field
+    const thermal = ctx('thermalFieldChart');
+    if (thermal && (D.times || []).length) {
+    window.thermalFieldChart = new Chart(thermal, {
+    type: 'line',
+    data: { labels: D.times || [], datasets: [{ label: 'Temperature', data: D.temp || [], tension: 0.25 }] },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     const env = ctx('envFieldChart');
-     if (env && (D.times || []).length) {
-     window.envFieldChartObj = new Chart(env, {
-     type: 'line',
-     data: {
-     labels: D.times || [],
-     datasets: [
-     { label: 'Light', data: D.light || [], tension: 0.25 },
-     { label: 'Noise', data: D.noise || [], tension: 0.25 }
-     ]
-     },
-     options: { responsive: true, animation: false }
-     });
-     }
+    // Environment Field
+    const env = ctx('envFieldChart');
+    if (env && (D.times || []).length) {
+    window.envFieldChart = new Chart(env, {
+    type: 'line',
+    data: {
+        labels: D.times || [],
+        datasets: [
+        { label: 'Light', data: D.light || [], tension: 0.25 },
+        { label: 'Noise', data: D.noise || [], tension: 0.25 }
+        ]
+    },
+    options: { responsive: true, animation: false }
+    });
+    }
 
-     })();
-     </script>
-     """
+    })();
+    </script>
+    """
 
     range_select_html = "".join(
         f"<option value='{val}' {'selected' if val == range_key else ''}>{label}</option>"
@@ -5244,41 +5247,132 @@ def board(req: Request):
     {RADAR_SCRIPT_JS}
     </script>
 
-    <!-- LIVE AUTO REFRESH -->
-    <script>
-    <script>
-    setInterval(() => {{
+    <!-- REAL TIME SESSION POLLING -->
+<script>
 
-    const params = new URLSearchParams(window.location.search);
-    const uid = params.get("user");
+const POLL_INTERVAL = 2000; // 2 seconds
 
-    if (!uid) return;
+async function pollLiveSession() {{
 
-    fetch("/api/board_snapshot?user=" + uid)
-    .then(r => r.json())
-    .then(data => {{
+ const params = new URLSearchParams(window.location.search);
+ const uid = params.get("user");
 
-    if (!data.has_data) return;
+ if (!uid) return;
 
-    if (document.getElementById("kpiAvgHarmony"))
-    document.getElementById("kpiAvgHarmony").innerText = data.kpis.avg_harmony;
+ try {{
 
-    if (document.getElementById("kpiDrift"))
-    document.getElementById("kpiDrift").innerText = data.kpis.avg_drift;
+  const res = await fetch("/api/recent?user=" + uid + "&limit=120", {{
+   cache: "no-store"
+  }});
 
-    if (document.getElementById("kpiImprovement"))
-    document.getElementById("kpiImprovement").innerText = data.kpis.improvement + "%";
+  const data = await res.json();
 
-    if (document.getElementById("kpiStability"))
-    document.getElementById("kpiStability").innerText = data.kpis.stability + "%";
+  if (!data.points) return;
 
-    if (document.getElementById("kpiHri"))
-    document.getElementById("kpiHri").innerText = data.kpis.hri;
+  const times = data.points.map(p => p.t);
+  const harmonies = data.points.map(p => p.harmony);
+  const eeg = data.points.map(p => p.eeg);
+  const ecg = data.points.map(p => p.ecg);
+
+  // ---------------------------
+  // Harmony chart (smooth scroll)
+  // ---------------------------
+  if (window.summaryHarmonyChart) {{
+
+   const chart = window.summaryHarmonyChart;
+
+   const newTime = times[times.length - 1];
+   const newHarmony = harmonies[harmonies.length - 1];
+
+   chart.data.labels.push(newTime);
+   chart.data.datasets[0].data.push(newHarmony);
+
+   if (chart.data.labels.length > 120) {{
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+   }}
+
+   chart.update();
+
+  }}
+
+  // ---------------------------
+  // EEG chart (smooth scroll)
+  // ---------------------------
+  if (window.brainFieldChart) {{
+
+   const chart = window.brainFieldChart;
+
+   const newTime = times[times.length - 1];
+   const newEEG = eeg[eeg.length - 1];
+
+   chart.data.labels.push(newTime);
+   chart.data.datasets[0].data.push(newEEG);
+
+   if (chart.data.labels.length > 120) {{
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+   }}
+
+   chart.update();
+
+  }}
+
+  // ---------------------------
+  // ECG chart (smooth scroll)
+  // ---------------------------
+  if (window.cardiacFieldChart) {{
+
+   const chart = window.cardiacFieldChart;
+
+   const newTime = times[times.length - 1];
+   const newECG = ecg[ecg.length - 1];
+
+   chart.data.labels.push(newTime);
+   chart.data.datasets[0].data.push(newECG);
+
+   if (chart.data.labels.length > 120) {{
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+   }}
+
+   chart.update();
+
+  }}
+
+  // ---------------------------
+  // Tag feed
+  // ---------------------------
+  if (data.events && document.getElementById("tagFeed")) {{
+
+   const feed = document.getElementById("tagFeed");
+   feed.innerHTML = "";
+
+   data.events.slice(-12).reverse().forEach(ev => {{
+
+    const row = document.createElement("div");
+
+    row.style.borderBottom = "1px solid #eee";
+    row.style.padding = "4px 0";
+
+    row.innerHTML =
+     "<b>" + (ev.label || ev.pattern_id) + "</b>" +
+     "<div style='font-size:12px;color:#666'>" + ev.t + "</div>";
+
+    feed.appendChild(row);
 
     }});
 
-    }}, 4000);
-    </script>
+    }}
+
+    }} catch (err) {{
+    console.log("Live session polling error:", err);
+    }}
+
+    }}
+
+    setInterval(pollLiveSession, POLL_INTERVAL);
+
     </script>
 
     <script>
