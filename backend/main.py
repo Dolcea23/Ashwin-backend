@@ -5555,25 +5555,24 @@ def api_correlation(
 
 @app.get("/proof/{uid}", response_class=HTMLResponse)
 def proof(uid: int):
-
     conn = get_conn()
     c = conn.cursor()
 
     c.execute(
-        """
-        SELECT eeg, ecg, temperature, light, noise, timestamp
-        FROM readings
-        WHERE user_id = %s
-        ORDER BY id ASC
-        """,
-        (uid,),
-    )
+    """
+     SELECT eeg, ecg, temperature, light, noise, timestamp
+     FROM readings
+     WHERE user_id = %s
+     ORDER BY id ASC
+     """,
+     (uid,),
+     )
     rows = c.fetchall()
 
     c.execute(
-        "SELECT COALESCE(display_name, name) FROM users WHERE id = %s",
-        (uid,),
-    )
+    "SELECT COALESCE(display_name, name) FROM users WHERE id = %s",
+     (uid,)
+     )
     uname_row = c.fetchone()
     conn.close()
 
@@ -5593,7 +5592,7 @@ def proof(uid: int):
         avg_after = round(mean(after), 2) if after else 0
 
     html = f"""
-<html>
+ <html>
  <head>
  <title>Ashwin Proof of Harmony</title>
  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -5612,10 +5611,9 @@ def proof(uid: int):
  <canvas id="proofLine"></canvas>
  </div>
  </body>
-</html>
-"""
-
-    return HTMLResponse(content=html)
+ </html>
+ """
+    return HTMLResponse(html)
 
 
 # -------------------------------------------------
