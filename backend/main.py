@@ -4088,16 +4088,20 @@ def get_window_rows(
     # 4️⃣ All time (limited for performance)
     # ---------------------------
     c.execute(
-        """
-          SELECT eeg, ecg, temperature, light, noise, timestamp
-          FROM readings
-          WHERE user_id=%s
-          ORDER BY timestamp ASC
-        """,
-        (user,),
+    """
+    SELECT eeg, ecg, temperature, light, noise, timestamp
+    FROM readings
+    WHERE user_id=%s
+    ORDER BY timestamp DESC
+    LIMIT 5000
+    """,
+    (user,),
     )
 
     rows = c.fetchall()
+
+    # restore chronological order for charts
+    rows.reverse()
 
     conn.close()
     return rows
@@ -4425,9 +4429,10 @@ def board(req: Request):
             )
 
     # ---------- Chart arrays ----------
-    chart_times, chart_harmonies, chart_eeg, chart_ecg = downsample_and_smooth(
-        times_raw, harmonies, eeg_vals, ecg_vals, step=5, window=20
-    )
+    chart_times = times_raw
+    chart_harmonies = harmonies
+    chart_eeg = eeg_vals
+    chart_ecg = ecg_vals
 
     # ---------- Range Options ----------
     range_options = [
