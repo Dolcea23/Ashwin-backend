@@ -700,7 +700,7 @@ def ensure_default_user():
             )
         else:
             c.execute(
-                "INSERT INTO users (login_name, name, display_name) VALUES (?,?,?)",
+                "INSERT INTO users (login_name, name, display_name) VALUES (%s,%s,%s)",
                 ("system","default","Default User")
             )
 
@@ -771,7 +771,7 @@ def compute_daily_index_sqlite(uid: int, day_yyyy_mm_dd: str):
                brain_score, heart_score, temp_score, env_score,
                recovery_score, harmony_score, confidence, created_at
         FROM ashwin_daily
-        WHERE user_id=? AND day=?
+        WHERE user_id=%s AND day=%s
     """,
         (uid, day_yyyy_mm_dd),
     )
@@ -1223,7 +1223,7 @@ def start_autosession(uid: int, label: str = "Auto Session"):
     c = conn.cursor()
     ts = datetime.utcnow().isoformat()
     c.execute(
-        "INSERT INTO sessions(user_id, label, start_time) VALUES (?,?,?)",
+        "INSERT INTO sessions(user_id, label, start_time) VALUES (%s,%s,%s)",
         (uid, label, ts),
     )
     conn.commit()
@@ -1239,7 +1239,7 @@ def get_active_session(uid: int):
         """
         SELECT id, start_time
         FROM sessions
-        WHERE user_id=? AND end_time IS NULL
+        WHERE user_id=%s AND end_time IS NULL
         ORDER BY id DESC LIMIT 1
         """,
         (uid,),
@@ -1268,7 +1268,7 @@ def end_session(sid: int):
     conn = get_conn()
     c = conn.cursor()
     ts = datetime.utcnow().isoformat()
-    c.execute("UPDATE sessions SET end_time=? WHERE id=?", (ts, sid))
+    c.execute("UPDATE sessions SET end_time=%s WHERE id=%s", (ts, sid))
     conn.commit()
     conn.close()
 
@@ -1346,7 +1346,7 @@ def signup(p: UserSignup):
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("SELECT id FROM users WHERE name=?", (p.name,))
+    c.execute("SELECT id FROM users WHERE name=%s", (p.name,))
     if c.fetchone():
         conn.close()
         return JSONResponse({"error": "User already exists"}, status_code=400)
@@ -1355,7 +1355,7 @@ def signup(p: UserSignup):
     disp = p.full_name or p.name
 
     c.execute(
-        "INSERT INTO users(name,pin,display_name,created_at) VALUES (?,?,?,?)",
+        "INSERT INTO users(name,pin,display_name,created_at) VALUES (%s,%s,%s,%s)",
         (p.name, p.pin, disp, now),
     )
 
@@ -1379,7 +1379,7 @@ def login(p: UserLogin):
     c = conn.cursor()
 
     c.execute(
-        "SELECT id, display_name FROM users WHERE name=? AND pin=?",
+        "SELECT id, display_name FROM users WHERE name=%s AND pin=%s",
         (p.name, p.pin),
     )
 
@@ -1444,7 +1444,7 @@ def register_device(device_id: str, user_id: int):
     c.execute(
         """
         INSERT INTO devices (device_id, user_id)
-        VALUES (?, ?)
+        VALUES (%s, %s)
         ON CONFLICT(device_id)
         DO UPDATE SET user_id = excluded.user_id
     """,
@@ -1475,7 +1475,8 @@ def ingest_raw(d: SensorReadingIn):
     # ----------------------------
     # 0) Resolve user from device
     # ----------------------------
-    c.execute("SELECT user_id FROM devices WHERE device_id = ?", (d.device_id,))
+    c.execute("SELECT user_id FROM devices WHERE device_id = %s", (d.device_id,))
+
     row = c.fetchone()
 
     if not row:
@@ -1494,7 +1495,7 @@ def ingest_raw(d: SensorReadingIn):
                 """
                 SELECT id
                 FROM sessions
-                WHERE id=? AND user_id=? AND end_time IS NULL
+            WHERE id=%s AND user_id=%s AND end_time IS NULL
                 LIMIT 1
             """,
                 (int(d.session_id), user_id),
@@ -1511,7 +1512,7 @@ def ingest_raw(d: SensorReadingIn):
             """
             SELECT id
             FROM sessions
-            WHERE user_id=? AND end_time IS NULL
+            WHERE user_id=%s AND end_time IS NULL
             ORDER BY id DESC
             LIMIT 1
         """,
@@ -1526,15 +1527,17 @@ def ingest_raw(d: SensorReadingIn):
     if not sid:
         now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
-        c.execute(
-            """
-            INSERT INTO sessions(user_id, label, start_time)
-            VALUES (?, 'autosession', ?)
-        """,
-            (user_id, now),
-        )
+    c.execute(
+    """
+    INSERT INTO sessions(user_id, label, start_time)
+    VALUES (%s, 'autosession', %s)
+    RETURNING id
+    """,
+    (user_id, now),
+    )
 
-        sid = c.lastrowid
+    sid = c.fetchone()[0]
+
 
     # ----------------------------
     # 2) Timestamp normalization
@@ -1589,7 +1592,7 @@ def ingest_raw(d: SensorReadingIn):
         INSERT INTO readings(
         user_id, session_id, eeg, ecg, temperature, light, noise, timestamp
         )
-        VALUES (?,?,?,?,?,?,?,?)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (user_id, sid, d.eeg, d.ecg, d.temperature, d.light, d.noise, ts),
     )
@@ -1610,7 +1613,7 @@ def ingest_raw(d: SensorReadingIn):
                 note,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """,
             (user_id, ev["event_type"], ev["confidence"], ev["note"], ts),
         )
@@ -1636,7 +1639,8 @@ def report(uid: int):
         """
         SELECT id,session_id,eeg,ecg,temperature,light,noise,timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
+
         ORDER BY id DESC LIMIT 40
         """,
         (uid,),
@@ -1718,7 +1722,7 @@ def save_baseline(p: BaselineProfile):
     uid = data.pop("user_id")
 
     c.execute(
-        "INSERT INTO profiles(user_id,data,created_at) VALUES (?,?,?)",
+        "INSERT INTO profiles(user_id,data,created_at) VALUES (%s,%s,%s)",
         (uid, json.dumps(data), now),
     )
     conn.commit()
@@ -1738,15 +1742,16 @@ def envsync(uid: int):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        """
-        SELECT temperature,light,noise
-        FROM readings
-        WHERE user_id=? AND datetime(timestamp) >= datetime(?)
-        ORDER BY timestamp DESC
-LIMIT 200
-        """,
-        (uid, cutoff),
+    """
+    SELECT temperature, light, noise
+    FROM readings
+    WHERE user_id=%s AND timestamp >= %s
+    ORDER BY timestamp DESC
+    LIMIT 200
+    """,
+    (uid, cutoff),
     )
+
     rows = c.fetchall()
     conn.close()
 
@@ -1799,7 +1804,7 @@ def predict_summary(uid: int):
         """
         SELECT eeg,ecg,temperature,timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id ASC
         """,
         (uid,),
@@ -1909,7 +1914,7 @@ def drift(uid: int):
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id = ?
+        WHERE user_id = %s
         ORDER BY id ASC
         """,
         (uid,),
@@ -1943,7 +1948,7 @@ def get_ashwin_index(uid: int):
         """
         SELECT eeg,ecg,temperature,light,noise,timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id ASC
         """,
         (uid,),
@@ -2418,9 +2423,9 @@ def _fetch_recent_rows_for_user(uid: int, limit: int = 2000):
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id = ?
+        WHERE user_id = %s
         ORDER BY id DESC
-        LIMIT ?
+        LIMIT %s
         """,
         (uid, limit),
     )
@@ -2447,9 +2452,9 @@ def _fetch_rows_for_user_day(uid: int, day_yyyy_mm_dd: str):
         """
     SELECT eeg, ecg, temperature, light, noise, timestamp
     FROM readings
-    WHERE user_id = ?
-    AND timestamp >= ?
-    AND timestamp <= ?
+    WHERE user_id = %s
+    AND timestamp >= %s
+    AND timestamp <= %s
     ORDER BY timestamp ASC
     """,
         (uid, start, end),
@@ -2465,7 +2470,7 @@ def compute_daily_index_sqlite(uid: int, day_yyyy_mm_dd: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        "SELECT * FROM ashwin_daily WHERE user_id=? AND day=?", (uid, day_yyyy_mm_dd)
+        "SELECT * FROM ashwin_daily WHERE user_id=%s AND day=%s", (uid, day_yyyy_mm_dd)
     )
     cached = c.fetchone()
     conn.close()
@@ -2498,13 +2503,14 @@ def compute_daily_index_sqlite(uid: int, day_yyyy_mm_dd: str):
     conn = get_conn()
     c = conn.cursor()
     c.execute(
-        """
-        INSERT OR REPLACE INTO ashwin_daily(
-            user_id, day, index_value, level, color,
-            brain_score, heart_score, temp_score, env_score,
-            recovery_score, harmony_score, confidence, created_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """,
+    """
+    INSERT INTO ashwin_daily(
+    user_id, day, index_value, level, color,
+    brain_score, heart_score, temp_score, env_score,
+    recovery_score, harmony_score, confidence, created_at
+    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """,
+
         (
             rec["user_id"],
             rec["day"],
@@ -3526,16 +3532,18 @@ def infer_zone_from_window(
 def get_recent_rows_for_user(user_id: int, limit: int = 120):
     conn = get_conn()
     c = conn.cursor()
+
     c.execute(
-        """
-        SELECT eeg, ecg, temperature, light, noise, timestamp
-        FROM readings
-        WHERE user_id = ?
-        ORDER BY timestamp DESC
-        LIMIT ?
-    """,
-        (user_id, limit),
+    """
+     SELECT eeg, ecg, temperature, light, noise, timestamp
+     FROM readings
+     WHERE user_id = %s
+     ORDER BY timestamp DESC
+     LIMIT %s
+     """,
+     (user_id, limit),
     )
+
     rows = c.fetchall()
     conn.close()
 
@@ -3576,12 +3584,13 @@ def create_tag(t: TagIn):
             sev = max(1, min(10, sev))
 
     c.execute(
-        """
-        INSERT INTO user_tags(user_id, tag_type, start_ts, end_ts, note, severity, created_at)
-        VALUES(?,?,?,?,?,?,?)
-        """,
-        (t.user_id, t.tag_type.strip(), start_ts, t.end_ts, t.note, sev, now_iso),
+    """
+    INSERT INTO user_tags(user_id, tag_type, start_ts, end_ts, note, severity, created_at)
+    VALUES(%s,%s,%s,%s,%s,%s,%s)
+    """,
+    (t.user_id, t.tag_type.strip(), start_ts, t.end_ts, t.note, sev, now_iso),
     )
+
 
     tag_id = c.lastrowid
     conn.commit()
@@ -3646,7 +3655,7 @@ def get_tags(
         """
         SELECT id, tag_type, start_ts, end_ts, note, severity, created_at
         FROM user_tags
-        WHERE user_id=?
+        WHERE user_id=%s
         AND datetime(start_ts) >= datetime(?)
         AND datetime(start_ts) <= datetime(?)
         ORDER BY datetime(start_ts) DESC
@@ -3779,7 +3788,7 @@ def _fetch_rows_for_patterns(uid: int, limit: int = 6000, range_key: str = "day"
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY timestamp DESC
         LIMIT ?
         """,
@@ -3875,7 +3884,7 @@ def review_queue_run(uid: int, hours: int = 6, min_repeats: int = 3, range_q: st
         c.execute(
             """
             SELECT id FROM pattern_review_queue
-            WHERE user_id=? AND sig=? AND status='new'
+            WHERE user_id=%s AND sig=%s AND status='new'
             LIMIT 1
             """,
             (uid, sig),
@@ -3888,7 +3897,7 @@ def review_queue_run(uid: int, hours: int = 6, min_repeats: int = 3, range_q: st
             """
             INSERT INTO pattern_review_queue
             (user_id, sig, window_start, window_end, event_count, pattern_counts_json, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'new')
+            VALUES (%s, %s, %s, %s, %s, %s, 'new')
             """,
             (uid, sig, ws, we, int(reps), json.dumps(pc)),
         )
@@ -3911,20 +3920,20 @@ def debug_session_state(uid: int):
     c = conn.cursor()
 
     c.execute(
-        "SELECT id, start_time, end_time FROM sessions WHERE user_id=? ORDER BY id DESC LIMIT 5",
+        "SELECT id, start_time, end_time FROM sessions WHERE user_id=%s ORDER BY id DESC LIMIT 5",
         (uid,),
     )
     sessions = c.fetchall()
 
     c.execute(
-        "SELECT id FROM sessions WHERE user_id=? AND end_time IS NULL ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM sessions WHERE user_id=%s AND end_time IS NULL ORDER BY id DESC LIMIT 1",
         (uid,),
     )
     active = c.fetchone()
     active_id = active[0] if active else None
 
     c.execute(
-        "SELECT timestamp, session_id FROM readings WHERE user_id=? ORDER BY timestamp DESC LIMIT 10",
+        "SELECT timestamp, session_id FROM readings WHERE user_id=%s ORDER BY timestamp DESC LIMIT 10",
         (uid,),
     )
     latest_reads = c.fetchall()
@@ -4013,7 +4022,7 @@ def get_window_rows(
                 """
             SELECT eeg, ecg, temperature, light, noise, timestamp
             FROM readings
-            WHERE user_id=?
+            WHERE user_id=%s
             AND timestamp >= ?
             AND timestamp < ?
             ORDER BY timestamp ASC
@@ -4037,7 +4046,7 @@ def get_window_rows(
             """
             SELECT eeg, ecg, temperature, light, noise, timestamp
             FROM readings
-            WHERE user_id=?
+            WHERE user_id=%s
             ORDER BY timestamp ASC
         """,
             (user,),
@@ -4081,8 +4090,8 @@ def get_window_rows(
             """
           SELECT eeg, ecg, temperature, light, noise, timestamp
           FROM readings
-          WHERE user_id=?
-          AND timestamp >= ?
+          WHERE user_id=%s
+          AND timestamp >= %s
           ORDER BY timestamp ASC
         """,
             (user, to_sqlite_dt(cutoff)),
@@ -4099,7 +4108,7 @@ def get_window_rows(
         """
           SELECT eeg, ecg, temperature, light, noise, timestamp
           FROM readings
-          WHERE user_id=?
+          WHERE user_id=%s
           ORDER BY timestamp ASC
         """,
         (user,),
@@ -4134,7 +4143,7 @@ def get_window_events(
         """
         SELECT event_type, confidence, note, created_at
         FROM life_events
-        WHERE user_id=?
+        WHERE user_id=%s
         AND datetime(created_at) >= datetime(?)
         AND datetime(created_at) <= datetime(?)
         ORDER BY datetime(created_at) DESC
@@ -4168,7 +4177,7 @@ def board(req: Request):
     )
     else:
             c.execute(
-        "SELECT COALESCE(display_name, name) FROM users WHERE id=?",
+        "SELECT COALESCE(display_name, name) FROM users WHERE id=%s",
         (selected,)
     )
 
@@ -4199,7 +4208,7 @@ def board(req: Request):
 
     # Get display name for selected user
     c.execute(
-        "SELECT COALESCE(display_name, name) FROM users WHERE id=?",
+        "SELECT COALESCE(display_name, name) FROM users WHERE id=%s",
         (selected,)
     )
     row = c.fetchone()
@@ -5360,11 +5369,11 @@ def _window_stats(uid, start_iso, end_iso, limit=5000):
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id=?
-        AND datetime(timestamp) >= datetime(?)
-        AND datetime(timestamp) <= datetime(?)
+        WHERE user_id=%s
+        AND datetime(timestamp) >= datetime(%s)
+        AND datetime(timestamp) <= datetime(%s)
         ORDER BY datetime(timestamp) ASC
-        LIMIT ?
+        LIMIT %s
         """,
         (uid, start_iso, end_iso, limit),
     )
@@ -5409,9 +5418,9 @@ def api_correlation(
         """
         SELECT id, tag_type, start_ts, end_ts, note, severity, created_at
         FROM user_tags
-        WHERE user_id=? AND tag_type=?
+        WHERE user_id=%s AND tag_type=%s
         ORDER BY datetime(start_ts) DESC
-        LIMIT ?
+        LIMIT %s
         """,
         (uid, tag_type, limit),
     )
@@ -5554,16 +5563,20 @@ def proof(uid: int):
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id = ?
+        WHERE user_id = %s
         ORDER BY id ASC
     """,
         (uid,),
     )
     rows = c.fetchall()
 
-    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id = ?", (uid,))
+    c.execute(
+    "SELECT COALESCE(display_name, name) FROM users WHERE id = %s",
+    (uid,)
+    )
     uname_row = c.fetchone()
     conn.close()
+
 
     uname = uname_row[0] if uname_row else f"User {uid}"
 
@@ -5617,14 +5630,14 @@ def ratios(uid: int):
         """
         SELECT eeg, ecg, light, noise, timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id ASC
         """,
         (uid,),
     )
     rows = c.fetchall()
 
-    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=?", (uid,))
+    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=%s", (uid,))
     uname_row = c.fetchone()
     conn.close()
 
@@ -5692,14 +5705,14 @@ def correlation(uid: int):
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id ASC
         """,
         (uid,),
     )
     rows = c.fetchall()
 
-    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=?", (uid,))
+    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=%s", (uid,))
     uname_row = c.fetchone()
     conn.close()
 
@@ -5779,7 +5792,7 @@ def export_full(uid: int):
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
         FROM readings
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id ASC
         """,
         (uid,),
@@ -5816,13 +5829,13 @@ def export_pdf(uid: int):
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=?", (uid,))
+    c.execute("SELECT COALESCE(display_name, name) FROM users WHERE id=%s", (uid,))
     uname_row = c.fetchone()
 
     c.execute(
         """
         SELECT eeg, ecg, temperature, light, noise, timestamp
-        FROM readings WHERE user_id=? ORDER BY id ASC
+        FROM readings WHERE user_id=%s ORDER BY id ASC
         """,
         (uid,),
     )
@@ -5888,23 +5901,24 @@ def inject_testdata():
     for i in range(80):
         ts = (datetime.utcnow() - timedelta(minutes=80 - i)).isoformat()
 
-        eeg = round(0.4 + random.random() * 0.9, 3)
-        ecg = round(0.5 + random.random() * 0.8, 3)
-        temp = round(98.2 + random.random() * 1.2, 2)
-        light = random.randint(10, 60)
-        noise = random.randint(5, 40)
+    eeg = round(0.4 + random.random() * 0.9, 3)
+    ecg = round(0.5 + random.random() * 0.8, 3)
+    temp = round(98.2 + random.random() * 1.2, 2)
+    light = random.randint(10, 60)
+    noise = random.randint(5, 40)
 
-        c.execute(
-            """
-            INSERT INTO readings
-            (user_id, session_id, eeg, ecg, temperature, light, noise, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (uid, sid, eeg, ecg, temp, light, noise, ts),
-        )
+    c.execute(
+        """
+        INSERT INTO readings
+        (user_id, session_id, eeg, ecg, temperature, light, noise, timestamp)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (uid, sid, eeg, ecg, temp, light, noise, ts),
+    )
 
     conn.commit()
     conn.close()
+
 
     return {"status": "ok", "user_id": uid, "session_id": sid}
 
