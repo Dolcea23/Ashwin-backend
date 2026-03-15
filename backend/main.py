@@ -23,7 +23,6 @@ ET = ZoneInfo("America/New_York")
 
 # ---------- Standard Library ----------
 import os
-import sqlite3
 import threading
 import shutil
 import csv
@@ -615,20 +614,16 @@ def require_partner_key(x_ashwin_key: Optional[str]):
 
 import os
 import psycopg2
-import sqlite3
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
+
 def get_conn():
-
-    # LOCAL DEVELOPMENT (no Render DB)
-    if not DATABASE_URL:
-        conn = sqlite3.connect("ashwin_local.db")
-        conn.row_factory = sqlite3.Row
-        return conn
-
-    # RENDER / PRODUCTION (PostgreSQL)
     return psycopg2.connect(DATABASE_URL)
+
+
 
 # ---------- FastAPI App ----------
 app = FastAPI(title="Ashwin Wellness Backend - v12")
