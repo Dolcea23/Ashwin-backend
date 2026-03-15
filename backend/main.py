@@ -3675,29 +3675,29 @@ def api_recent(
     user: int = Query(1),
     limit: int = Query(120),
 ):
-    """
-    Returns recent points + tagged events (pattern + zone).
-    Non-medical. Used by /board live strip.
-    """
-    # IMPORTANT:
-    # Replace this with the SAME query logic you already use in /board to build `rows`.
-    # rows must be list of tuples: (eeg, ecg, temp, light, noise, ts)
-    rows = get_recent_rows_for_user(user, limit=limit)
+
+    rows = get_window_rows(user, "session")
+
+    if not rows:
+        return JSONResponse({
+            "user": user,
+            "points": [],
+            "events": [],
+            "disclaimer": "No active session."
+        })
+
+    rows = rows[-limit:]
 
     points, events = build_live_points_and_events(rows)
-
-    # trim events to last ~40 so UI stays clean
-    events = events[-40:]
 
     return JSONResponse(
         {
             "user": user,
             "points": points,
             "events": events,
-            "disclaimer": "Pattern + zone tags are non-diagnostic behavioral labels for research/wellness visualization only.",
+            "disclaimer": "Pattern + zone tags are non-diagnostic behavioral labels for research/wellness visualization only."
         }
     )
-
 
 @app.get("/debug/tables")
 def debug_tables():
@@ -4596,6 +4596,119 @@ def board(req: Request):
     LIVE_STRIP_JS = globals().get("LIVE_STRIP_JS", "")
     RADAR_SCRIPT_JS = globals().get("RADAR_SCRIPT_JS", "")
 
+    POLL_JS = r"""
+const POLL_INTERVAL = 2000;
+
+async function pollLiveSession() {
+
+ const params = new URLSearchParams(window.location.search);
+ const uid = params.get("user");
+
+ if (!uid) return;
+
+ try {
+
+  const res = await fetch("/api/recent?user=" + uid + "&limit=120&_=" + Date.now(), {
+   cache: "no-store"
+  });
+
+  const data = await res.json();
+  if (!data.points) return;
+
+  const times = data.points.map(p => p.t);
+  const harmonies = data.points.map(p => p.harmony);
+  const eeg = data.points.map(p => p.eeg);
+  const ecg = data.points.map(p => p.ecg);
+
+  // Harmony chart
+  if (window.summaryHarmonyChart) {
+
+    const chart = window.summaryHarmonyChart;
+
+    const newTime = times[times.length - 1];
+    const newHarmony = harmonies[harmonies.length - 1];
+
+    chart.data.labels.push(newTime);
+    chart.data.datasets[0].data.push(newHarmony);
+
+    if (chart.data.labels.length > 120) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+
+    chart.update();
+  }
+
+  // EEG chart
+  if (window.brainFieldChart) {
+
+    const chart = window.brainFieldChart;
+
+    const newTime = times[times.length - 1];
+    const newEEG = eeg[eeg.length - 1];
+
+    chart.data.labels.push(newTime);
+    chart.data.datasets[0].data.push(newEEG);
+
+    if (chart.data.labels.length > 120) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+
+    chart.update();
+  }
+
+  // ECG chart
+  if (window.cardiacFieldChart) {
+
+    const chart = window.cardiacFieldChart;
+
+    const newTime = times[times.length - 1];
+    const newECG = ecg[ecg.length - 1];
+
+    chart.data.labels.push(newTime);
+    chart.data.datasets[0].data.push(newECG);
+
+    if (chart.data.labels.length > 120) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+
+    chart.update();
+  }
+
+  // Tag feed
+  if (data.events && document.getElementById("tagFeed")) {
+
+    const feed = document.getElementById("tagFeed");
+    feed.innerHTML = "";
+
+    data.events.slice(-12).reverse().forEach(ev => {
+
+      const row = document.createElement("div");
+
+      row.style.borderBottom = "1px solid #eee";
+      row.style.padding = "4px 0";
+
+      row.innerHTML =
+        "<b>" + (ev.label || ev.pattern_id) + "</b>" +
+        "<div style='font-size:12px;color:#666'>" + ev.t + "</div>";
+
+      feed.appendChild(row);
+
+    });
+
+    }
+
+    } catch (err) {
+    console.log("Live session polling error:", err);
+    }
+
+    }
+
+    setInterval(pollLiveSession, POLL_INTERVAL);
+    """
+
     # ---------- HTML ----------
 
     RANGE_JS = r"""
@@ -5245,134 +5358,6 @@ def board(req: Request):
 
     <script>
     {RADAR_SCRIPT_JS}
-    </script>
-
-    <!-- REAL TIME SESSION POLLING -->
-<script>
-
-const POLL_INTERVAL = 2000; // 2 seconds
-
-async function pollLiveSession() {{
-
- const params = new URLSearchParams(window.location.search);
- const uid = params.get("user");
-
- if (!uid) return;
-
- try {{
-
-  const res = await fetch("/api/recent?user=" + uid + "&limit=120", {{
-   cache: "no-store"
-  }});
-
-  const data = await res.json();
-
-  if (!data.points) return;
-
-  const times = data.points.map(p => p.t);
-  const harmonies = data.points.map(p => p.harmony);
-  const eeg = data.points.map(p => p.eeg);
-  const ecg = data.points.map(p => p.ecg);
-
-  // ---------------------------
-  // Harmony chart (smooth scroll)
-  // ---------------------------
-  if (window.summaryHarmonyChart) {{
-
-   const chart = window.summaryHarmonyChart;
-
-   const newTime = times[times.length - 1];
-   const newHarmony = harmonies[harmonies.length - 1];
-
-   chart.data.labels.push(newTime);
-   chart.data.datasets[0].data.push(newHarmony);
-
-   if (chart.data.labels.length > 120) {{
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-   }}
-
-   chart.update();
-
-  }}
-
-  // ---------------------------
-  // EEG chart (smooth scroll)
-  // ---------------------------
-  if (window.brainFieldChart) {{
-
-   const chart = window.brainFieldChart;
-
-   const newTime = times[times.length - 1];
-   const newEEG = eeg[eeg.length - 1];
-
-   chart.data.labels.push(newTime);
-   chart.data.datasets[0].data.push(newEEG);
-
-   if (chart.data.labels.length > 120) {{
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-   }}
-
-   chart.update();
-
-  }}
-
-  // ---------------------------
-  // ECG chart (smooth scroll)
-  // ---------------------------
-  if (window.cardiacFieldChart) {{
-
-   const chart = window.cardiacFieldChart;
-
-   const newTime = times[times.length - 1];
-   const newECG = ecg[ecg.length - 1];
-
-   chart.data.labels.push(newTime);
-   chart.data.datasets[0].data.push(newECG);
-
-   if (chart.data.labels.length > 120) {{
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-   }}
-
-   chart.update();
-
-  }}
-
-  // ---------------------------
-  // Tag feed
-  // ---------------------------
-  if (data.events && document.getElementById("tagFeed")) {{
-
-   const feed = document.getElementById("tagFeed");
-   feed.innerHTML = "";
-
-   data.events.slice(-12).reverse().forEach(ev => {{
-
-    const row = document.createElement("div");
-
-    row.style.borderBottom = "1px solid #eee";
-    row.style.padding = "4px 0";
-
-    row.innerHTML =
-     "<b>" + (ev.label || ev.pattern_id) + "</b>" +
-     "<div style='font-size:12px;color:#666'>" + ev.t + "</div>";
-
-    feed.appendChild(row);
-
-    }});
-
-    }}
-
-    }} catch (err) {{
-    console.log("Live session polling error:", err);
-    }}
-
-    }}
-
-    setInterval(pollLiveSession, POLL_INTERVAL);
-
     </script>
 
     <script>
