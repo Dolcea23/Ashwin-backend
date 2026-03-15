@@ -1,8 +1,12 @@
 from __future__ import annotations
 from pathlib import Path
+from zoneinfo import ZoneInfo   # ← move this here
+
 print("🚀 RUNNING BACKEND MAIN.PY")
+
 BASE_DIR = Path(__file__).resolve().parent
 # -*- coding: utf-8 -*-
+
 
 # -------------------------------------------------
 # Ashwin Wellness Backend - v12 "Harmony + Ashwin Index v1.0"
@@ -863,123 +867,108 @@ def init_db():
     conn = get_conn()
     c = conn.cursor()
 
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            pin TEXT,
-            display_name TEXT,
-            created_at TEXT
-        )
-    """
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS users(
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        pin TEXT,
+        display_name TEXT,
+        created_at TEXT
     )
+    """)
 
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS sessions(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            label TEXT,
-            start_time TEXT,
-            end_time TEXT
-        )
-    """
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS sessions(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        label TEXT,
+        start_time TEXT,
+        end_time TEXT
     )
+    """)
 
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS readings(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            session_id INTEGER,
-            eeg REAL,
-            ecg REAL,
-            temperature REAL,
-            light REAL,
-            noise REAL,
-            timestamp TEXT
-        )
-    """
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS readings(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        session_id INTEGER,
+        eeg REAL,
+        ecg REAL,
+        temperature REAL,
+        light REAL,
+        noise REAL,
+        timestamp TEXT
     )
+    """)
 
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS life_events(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            event_type TEXT,
-            confidence REAL,
-            note TEXT,
-            created_at TEXT
-        )
-    """
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS life_events(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        event_type TEXT,
+        confidence REAL,
+        note TEXT,
+        created_at TEXT
     )
+    """)
 
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS profiles(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            data TEXT,
-            created_at TEXT
-        )
-    """
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS profiles(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        data TEXT,
+        created_at TEXT
     )
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS ashwin_daily(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            day TEXT NOT NULL,                 -- YYYY-MM-DD (ET)
-            index_value REAL NOT NULL,
-            level TEXT,
-            color TEXT,
-            brain_score REAL,
-            heart_score REAL,
-            temp_score REAL,
-            env_score REAL,
-            recovery_score REAL,
-            harmony_score REAL,
-            confidence REAL,
-            created_at TEXT,
-            UNIQUE(user_id, day)
-        )
-    """
-    )
-    # --- user_tags: user-labeled events for correlation (non-diagnostic) ---
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS user_tags (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          tag_type TEXT NOT NULL,         -- e.g. migraine, neck_pain, meds, stress, flare
-          start_ts TEXT NOT NULL,         -- ISO string
-          end_ts TEXT,                    -- optional ISO
-          note TEXT,
-          severity INTEGER,               -- optional 1..10
-          created_at TEXT NOT NULL
-        )
-        """
-    )
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS pattern_review_queue (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER NOT NULL,
-          sig TEXT NOT NULL,                 -- signature key (hashable string)
-          window_start TEXT NOT NULL,
-          window_end TEXT NOT NULL,
-          event_count INTEGER NOT NULL DEFAULT 0,
-          pattern_counts_json TEXT,          -- JSON string of counts
-          suggested_label TEXT,
-          status TEXT NOT NULL DEFAULT 'new', -- new|reviewed|dismissed|promoted
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-        """
-    )
+    """)
 
-    # helpful index for time queries
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS ashwin_daily(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        day TEXT NOT NULL,
+        index_value REAL NOT NULL,
+        level TEXT,
+        color TEXT,
+        brain_score REAL,
+        heart_score REAL,
+        temp_score REAL,
+        env_score REAL,
+        recovery_score REAL,
+        harmony_score REAL,
+        confidence REAL,
+        created_at TEXT,
+        UNIQUE(user_id, day)
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS user_tags (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        tag_type TEXT NOT NULL,
+        start_ts TEXT NOT NULL,
+        end_ts TEXT,
+        note TEXT,
+        severity INTEGER,
+        created_at TEXT NOT NULL
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS pattern_review_queue (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        sig TEXT NOT NULL,
+        window_start TEXT NOT NULL,
+        window_end TEXT NOT NULL,
+        event_count INTEGER NOT NULL DEFAULT 0,
+        pattern_counts_json TEXT,
+        suggested_label TEXT,
+        status TEXT NOT NULL DEFAULT 'new',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
     c.execute(
         "CREATE INDEX IF NOT EXISTS idx_user_tags_user_time ON user_tags(user_id, start_ts)"
     )
@@ -987,9 +976,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 init_db()
-
 
 # ---------- Models ----------
 class UserSignup(BaseModel):
@@ -3652,20 +3639,21 @@ def get_tags(
     # 2️⃣ Fetch tags inside SAME window
     # -------------------------------------------------
     c.execute(
-        """
-        SELECT id, tag_type, start_ts, end_ts, note, severity, created_at
-        FROM user_tags
-        WHERE user_id=%s
-        AND datetime(start_ts) >= datetime(?)
-        AND datetime(start_ts) <= datetime(?)
-        ORDER BY datetime(start_ts) DESC
-        LIMIT ?
-        """,
-        (uid, window_start, window_end, limit),
+    """
+    SELECT id, tag_type, start_ts, end_ts, note, severity, created_at
+    FROM user_tags
+    WHERE user_id=%s
+    AND start_ts >= %s
+    AND start_ts <= %s
+    ORDER BY start_ts DESC
+    LIMIT %s
+    """,
+    (uid, window_start, window_end, limit),
     )
 
     rows = c.fetchall()
     conn.close()
+
 
     # -------------------------------------------------
     # 3️⃣ Return dict format
@@ -4140,22 +4128,21 @@ def get_window_events(
     c = conn.cursor()
 
     c.execute(
-        """
-        SELECT event_type, confidence, note, created_at
-        FROM life_events
-        WHERE user_id=%s
-        AND datetime(created_at) >= datetime(?)
-        AND datetime(created_at) <= datetime(?)
-        ORDER BY datetime(created_at) DESC
-        """,
-        (user, window_start, window_end),
+    """
+    SELECT event_type, confidence, note, created_at
+    FROM life_events
+    WHERE user_id=%s
+    AND created_at >= %s
+    AND created_at <= %s
+    ORDER BY created_at DESC
+    """,
+    (user, window_start, window_end),
     )
 
     events = c.fetchall()
     conn.close()
 
     return events
-
 
 @app.get("/board", response_class=HTMLResponse)
 def board(req: Request):
@@ -4169,22 +4156,15 @@ def board(req: Request):
 
     # SAFEGUARD: ensure at least one user exists
     if not users:
-
-        if DATABASE_URL:
-            c.execute(
-        "SELECT COALESCE(display_name, name) FROM users WHERE id=%s",
-        (selected,)
-    )
-    else:
-            c.execute(
-        "SELECT COALESCE(display_name, name) FROM users WHERE id=%s",
-        (selected,)
-    )
-
+     c.execute("""
+        INSERT INTO users (name, display_name, created_at)
+        VALUES (%s, %s, %s)
+    """, ("User 1", "User 1", datetime.utcnow().isoformat()))
     conn.commit()
 
     c.execute("SELECT id, COALESCE(display_name, name) FROM users")
     users = c.fetchall()
+
 
     # Determine selected user
     q_user = req.query_params.get("user")
@@ -4194,12 +4174,14 @@ def board(req: Request):
 
     else:
     # try newest reading user
-        row = c.execute("""
+        c.execute("""
         SELECT user_id
         FROM readings
         ORDER BY id DESC
         LIMIT 1
-    """).fetchone()
+    """)
+    row = c.fetchone()
+
 
     if row:
         selected = int(row[0])
@@ -5354,6 +5336,8 @@ def board(req: Request):
     </body>
     </html>
     """
+    
+    
     return HTMLResponse(content=html)
 
 # -------------------------------------------------
@@ -5966,3 +5950,6 @@ def backup_full_project():
             print("⚠️ Backup failed:", e)
 
         time.sleep(86400)  # 24 hours
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
