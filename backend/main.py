@@ -1583,20 +1583,24 @@ def ingest_raw(d: SensorReadingIn):
     # 4) Insert reading
     # ----------------------------
 
-    c.execute(
+    if DATABASE_URL:
+     c.execute(
         """
         INSERT INTO readings(
-            user_id,
-            session_id,
-            eeg,
-            ecg,
-            temperature,
-            light,
-            noise,
-            timestamp
+        user_id, session_id, eeg, ecg, temperature, light, noise, timestamp
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """,
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        """,
+        (user_id, sid, d.eeg, d.ecg, d.temperature, d.light, d.noise, ts),
+    )
+    else:
+     c.execute(
+        """
+        INSERT INTO readings(
+        user_id, session_id, eeg, ecg, temperature, light, noise, timestamp
+        )
+        VALUES (?,?,?,?,?,?,?,?)
+        """,
         (user_id, sid, d.eeg, d.ecg, d.temperature, d.light, d.noise, ts),
     )
 
@@ -1625,6 +1629,10 @@ def ingest_raw(d: SensorReadingIn):
     conn.close()
 
     return {"status": "ok", "session_id": sid, "timestamp": ts}
+
+@app.post("/readings")
+def readings_alias(d: SensorReadingIn):
+    return ingest_raw(d)
 
 
 # -------------------------------------------------
