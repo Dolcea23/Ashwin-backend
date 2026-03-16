@@ -4610,10 +4610,20 @@ def board(req: Request):
   const data = await res.json();
   if (!data.points) return;
 
-  const times = data.points.map(p => p.t);
-  const harmonies = data.points.map(p => p.harmony);
-  const eeg = data.points.map(p => p.eeg);
-  const ecg = data.points.map(p => p.ecg);
+    const times = data.points.map(p => p.t);
+    const harmonies = data.points.map(p => p.harmony);
+    const eeg = data.points.map(p => p.eeg);
+    const ecg = data.points.map(p => p.ecg);
+
+    if (!times.length) return;
+
+    const lastReading = new Date(times[times.length - 1]);
+    const now = new Date();
+
+    if (now - lastReading > 15000) {
+    console.log("No live readings — freezing board");
+    return;
+    }
 
   // Harmony chart
   if (window.summaryHarmonyChart) {
@@ -4673,23 +4683,29 @@ def board(req: Request):
   }
 
   // Tag feed
-  if (data.events && document.getElementById("tagFeed")) {
+    if (data.events && document.getElementById("tagFeed")) {
 
     const feed = document.getElementById("tagFeed");
+
+    const newest = data.events[data.events.length - 1];
+
+    if (feed.dataset.last === newest.t) return;
+
+    feed.dataset.last = newest.t;
     feed.innerHTML = "";
 
     data.events.slice(-12).reverse().forEach(ev => {
 
-      const row = document.createElement("div");
+    const row = document.createElement("div");
 
-      row.style.borderBottom = "1px solid #eee";
-      row.style.padding = "4px 0";
+    row.style.borderBottom = "1px solid #eee";
+    row.style.padding = "4px 0";
 
-      row.innerHTML =
-        "<b>" + (ev.label || ev.pattern_id) + "</b>" +
-        "<div style='font-size:12px;color:#666'>" + ev.t + "</div>";
+    row.innerHTML =
+    "<b>" + (ev.label || ev.pattern_id) + "</b>" +
+    "<div style='font-size:12px;color:#666'>" + ev.t + "</div>";
 
-      feed.appendChild(row);
+    feed.appendChild(row);
 
     });
 
