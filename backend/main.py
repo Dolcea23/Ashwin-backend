@@ -2889,37 +2889,40 @@ def build_live_points_and_events(rows):
 
         for pid in hits_sorted:
 
-            now = datetime.utcnow()
+         now = datetime.utcnow()
 
-            first_seen = pattern_first_seen.get(pid)
+        first_seen = pattern_first_seen.get(pid)
 
-            if first_seen is None:
-        # first time pattern detected
-                pattern_first_seen[pid] = now
+        # First time pattern detected
+        if first_seen is None:
+            pattern_first_seen[pid] = now
+            continue
+
+        # Extra safety guard
+        if not isinstance(first_seen, datetime):
+            pattern_first_seen[pid] = now
             continue
 
         elapsed = (now - first_seen).total_seconds()
 
+        # Pattern not long enough yet
         if elapsed < PATTERN_MIN_DURATION:
             continue
 
-        # pattern lasted long enough → emit event
-        pattern_first_seen.pop(pid, None)
+    # Pattern lasted long enough → emit event
+    pattern_first_seen.pop(pid, None)
 
     meta = pattern_meta(pid)
 
-    events.append(
-        {
-            "t": str(ts),
-            "pattern_id": pid,
-            "label": meta.get("label", pid),
-            "desc": meta.get("desc", ""),
-            "zone_id": z_id,
-            "zone_label": z_label,
-            "zone_conf": round(float(z_conf), 2),
-        }
-    )
-
+    events.append({
+        "t": str(ts),
+        "pattern_id": pid,
+        "label": meta.get("label", pid),
+        "desc": meta.get("desc", ""),
+        "zone_id": z_id,
+        "zone_label": z_label,
+        "zone_conf": round(float(z_conf), 2),
+    })
     return points, events
 
 
