@@ -987,6 +987,9 @@ class SensorReadingIn(BaseModel):
     noise: Optional[float] = None
     timestamp: Optional[str] = None
 
+    class Config:
+        extra = "allow"
+
 
 class StartSession(BaseModel):
     user_id: int
