@@ -977,7 +977,7 @@ class UserLogin(BaseModel):
 
 
 class SensorReadingIn(BaseModel):
-    device_id: str
+    device_id: str = "pillow_001"
     user_id: Optional[int] = None
     session_id: Optional[int] = None
     eeg: Optional[float] = None
@@ -1437,11 +1437,14 @@ def register_device(device_id: str, user_id: int):
 # ---------- SENSOR INGEST ----------
 # -------------------------------------------------
 
-from datetime import datetime, timezone
-
-
 @app.post("/ingest/raw")
 def ingest_raw(d: SensorReadingIn):
+
+    # protect against bad payloads
+    if not d.device_id:
+        d.device_id = "pillow_001"
+
+    print("INGEST PAYLOAD:", d)
 
     conn = get_conn()
     c = conn.cursor()
