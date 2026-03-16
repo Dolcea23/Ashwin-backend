@@ -341,14 +341,29 @@ RADAR_SCRIPT_JS = r"""
       const last = ev.slice(-40).reverse();
 
       feed.innerHTML = last.map(e => {
-        const t = e.t || e.ts || "";
-        const pid = e.pattern_id || e.id || "TAG";
-        const label = e.label || e.name || "";
-        const z = e.zone_id || e.zone || "";
-        const confNum = (typeof e.confidence === "number") ? e.confidence
-                      : (typeof e.conf === "number") ? e.conf : null;
-        const conf = (confNum !== null) ? ` • ${(confNum*100).toFixed(0)}%` : "";
 
+ const rawTime = e.t || e.ts || "";
+ const t = rawTime
+   ? new Date(rawTime).toLocaleString("en-US", {
+       timeZone: "America/New_York",
+       hour: "2-digit",
+       minute: "2-digit",
+       second: "2-digit"
+     })
+   : "";
+
+ const pid = e.pattern_id || e.id || "TAG";
+ const label = e.label || e.name || "";
+ const z = e.zone_id || e.zone || "";
+
+ const confNum =
+   typeof e.confidence === "number"
+     ? e.confidence
+     : typeof e.conf === "number"
+     ? e.conf
+     : null;
+
+ const conf = confNum !== null ? ` • ${(confNum * 100).toFixed(0)}%` : "";
         return `
           <div style="padding:.5rem .6rem;border:1px solid rgba(255,255,255,.08);border-radius:.6rem;margin:.45rem 0;">
             <div style="display:flex;justify-content:space-between;gap:.75rem;">
@@ -2768,6 +2783,9 @@ def build_live_points_and_events(rows):
 
     prev_d = None
     prev_r = None
+    # pattern persistence control
+    pattern_first_seen = {}
+    PATTERN_MIN_DURATION = 5
 
     # Priority: show the most “important” tags first.
     # Include derived tags near the top so they can surface.
@@ -2870,18 +2888,37 @@ def build_live_points_and_events(rows):
         hits_sorted = sorted(hits, key=lambda x: prio_rank.get(x, 999))[:2]
 
         for pid in hits_sorted:
-            meta = pattern_meta(pid)  # ✅ unified resolver for atomic + derived
-            events.append(
-                {
-                    "t": str(ts),
-                    "pattern_id": pid,
-                    "label": meta.get("label", pid),
-                    "desc": meta.get("desc", ""),
-                    "zone_id": z_id,
-                    "zone_label": z_label,
-                    "zone_conf": round(float(z_conf), 2),
-                }
-            )
+
+            now = datetime.utcnow()
+
+            first_seen = pattern_first_seen.get(pid)
+
+            if not first_seen:
+            # first time pattern detected
+                pattern_first_seen[pid] = now
+            continue
+
+        elapsed = (now - first_seen).total_seconds()
+
+        if elapsed < PATTERN_MIN_DURATION:
+            continue
+
+    # pattern lasted long enough → emit event
+    pattern_first_seen.pop(pid, None)
+
+    meta = pattern_meta(pid)
+
+    events.append(
+        {
+            "t": str(ts),
+            "pattern_id": pid,
+            "label": meta.get("label", pid),
+            "desc": meta.get("desc", ""),
+            "zone_id": z_id,
+            "zone_label": z_label,
+            "zone_conf": round(float(z_conf), 2),
+        }
+    )
 
     return points, events
 
@@ -3289,9 +3326,13 @@ def api_board_snapshot(
 
         harmonies.append(calc_harmony(eeg, ecg, temp))
 
-        # Emotional / Autonomic signal
-        autonomic = abs(safe(eeg) - safe(ecg))
-        autonomic_vals.append(autonomic)
+        # Emotional / Autonomic signal (stress load model)
+        if eeg not in (None, 0) and ecg not in (None, 0):
+            autonomic = abs(eeg - ecg) * 0.7 + safe(noise) * 0.2 + safe(light) * 0.1
+    else:
+        autonomic = None
+
+    autonomic_vals.append(autonomic)
 
     # -------------------------------------------------
     # 4) Drift
@@ -4250,9 +4291,13 @@ def board(req: Request):
 
         harmonies.append(calc_harmony(eeg, ecg, temp))
 
-        # ⭐ Emotional / Autonomic signal
-        autonomic = abs(safe(eeg) - safe(ecg))
-        autonomic_vals.append(autonomic)
+       # Emotional / Autonomic signal (stress load model)
+        if eeg not in (None, 0) and ecg not in (None, 0):
+         autonomic = abs(eeg - ecg) * 0.7 + safe(noise) * 0.2 + safe(light) * 0.1
+    else:
+        autonomic = None
+
+    autonomic_vals.append(autonomic)
 
     # ---------- SAFETY: prevent empty arrays crashing charts ----------
     if not times_raw:
@@ -4333,17 +4378,19 @@ def board(req: Request):
 
     for eeg, ecg, temp, light, noise, ts in rows:
 
-        if ecg:
-            brain_coherence = round(eeg / ecg, 3) if eeg is not None and ecg != 0 else 0
-        else:
-            brain_coherence = 0
+    # Brain coherence
+        if eeg is not None and ecg not in (None, 0):
+            brain_coherence = round(eeg / ecg, 3)
+    else:
+        brain_coherence = None
 
-        if noise not in (None, 0):
-            signal_to_noise = round(light / noise, 3) if light is not None else 0
-        else:
-            signal_to_noise = 0
+    # Signal-to-noise
+    if light is not None and noise not in (None, 0):
+        signal_to_noise = round(light / noise, 3)
+    else:
+        signal_to_noise = None
 
-        ratio_rows.append((parse_iso_to_et(ts), brain_coherence, signal_to_noise))
+    ratio_rows.append((parse_iso_to_et(ts), brain_coherence, signal_to_noise))
 
     # ---------- Correlations ----------
     def safe_series(vals):
@@ -4618,8 +4665,9 @@ def board(req: Request):
 
     const times = data.points.map(p => p.t);
     const harmonies = data.points.map(p => p.harmony);
-    const eeg = data.points.map(p => p.eeg);
-    const ecg = data.points.map(p => p.ecg);
+    const drift = data.points.map(p => p.drift);
+    const coherence = data.points.map(p => p.coherence);
+    const resonance = data.points.map(p => p.resonance);
 
     if (!times.length) return;
 
@@ -4656,7 +4704,7 @@ def board(req: Request):
     const chart = window.brainFieldChart;
 
     const newTime = times[times.length - 1];
-    const newEEG = eeg[eeg.length - 1];
+    const newEEG = drift[drift.length - 1];
 
     chart.data.labels.push(newTime);
     chart.data.datasets[0].data.push(newEEG);
@@ -4675,7 +4723,7 @@ def board(req: Request):
     const chart = window.cardiacFieldChart;
 
     const newTime = times[times.length - 1];
-    const newECG = ecg[ecg.length - 1];
+    const newECG = resonance[resonance.length - 1];
 
     chart.data.labels.push(newTime);
     chart.data.datasets[0].data.push(newECG);
@@ -4717,12 +4765,16 @@ def board(req: Request):
 
     }
 
-    } catch (err) {
+     } catch (err) {
     console.log("Live session polling error:", err);
     }
 
     }
 
+    // run immediately on page load
+    pollLiveSession();
+
+    // then poll continuously
     setInterval(pollLiveSession, POLL_INTERVAL);
     """
 
