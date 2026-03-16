@@ -2893,8 +2893,8 @@ def build_live_points_and_events(rows):
 
             first_seen = pattern_first_seen.get(pid)
 
-            if not first_seen:
-            # first time pattern detected
+            if first_seen is None:
+        # first time pattern detected
                 pattern_first_seen[pid] = now
             continue
 
@@ -2903,8 +2903,8 @@ def build_live_points_and_events(rows):
         if elapsed < PATTERN_MIN_DURATION:
             continue
 
-    # pattern lasted long enough → emit event
-    pattern_first_seen.pop(pid, None)
+        # pattern lasted long enough → emit event
+        pattern_first_seen.pop(pid, None)
 
     meta = pattern_meta(pid)
 
