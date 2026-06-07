@@ -2899,6 +2899,9 @@ def build_live_points_and_events(rows):
 
     prev_d = None
     prev_r = None
+    # pattern persistence control
+    pattern_first_seen = {}
+    PATTERN_MIN_DURATION = 5
 
     pattern_first_seen = {}
     emitted_recently = set()
@@ -2997,7 +3000,6 @@ def build_live_points_and_events(rows):
             )
 
         prev_d, prev_r = d, r
-
     return points, events
 
 @app.get("/debug/build_live_src")
