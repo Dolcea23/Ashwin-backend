@@ -341,14 +341,29 @@ RADAR_SCRIPT_JS = r"""
       const last = ev.slice(-40).reverse();
 
       feed.innerHTML = last.map(e => {
-        const t = e.t || e.ts || "";
-        const pid = e.pattern_id || e.id || "TAG";
-        const label = e.label || e.name || "";
-        const z = e.zone_id || e.zone || "";
-        const confNum = (typeof e.confidence === "number") ? e.confidence
-                      : (typeof e.conf === "number") ? e.conf : null;
-        const conf = (confNum !== null) ? ` • ${(confNum*100).toFixed(0)}%` : "";
 
+ const rawTime = e.t || e.ts || "";
+ const t = rawTime
+   ? new Date(rawTime).toLocaleString("en-US", {
+       timeZone: "America/New_York",
+       hour: "2-digit",
+       minute: "2-digit",
+       second: "2-digit"
+     })
+   : "";
+
+ const pid = e.pattern_id || e.id || "TAG";
+ const label = e.label || e.name || "";
+ const z = e.zone_id || e.zone || "";
+
+ const confNum =
+   typeof e.confidence === "number"
+     ? e.confidence
+     : typeof e.conf === "number"
+     ? e.conf
+     : null;
+
+ const conf = confNum !== null ? ` • ${(confNum * 100).toFixed(0)}%` : "";
         return `
           <div style="padding:.5rem .6rem;border:1px solid rgba(255,255,255,.08);border-radius:.6rem;margin:.45rem 0;">
             <div style="display:flex;justify-content:space-between;gap:.75rem;">
@@ -2076,7 +2091,108 @@ def compute_resonance_series(rows):
     res = [((v - rmin) / (rmax - rmin)) * 100 for v in raw]
     return [round(clamp(x), 2) for x in res]
 
+# -------------------------------------------------
+# ---------- SIGNAL DECOMPOSITION LAYER ----------
+# -------------------------------------------------
 
+def moving_avg(vals, win=5):
+    out = []
+    for i in range(len(vals)):
+        chunk = vals[max(0, i - win + 1): i + 1]
+        out.append(sum(chunk) / max(1, len(chunk)))
+    return out
+
+
+def highpass(vals, win=12):
+    base = moving_avg(vals, win)
+    return [v - b for v, b in zip(vals, base)]
+
+
+def band_energy(vals):
+    if not vals:
+        return 0.0
+    if len(vals) < 2:
+        return 0.0
+    return min(100.0, abs(pstdev(vals)) * 1000)
+
+
+def decompose_rows(rows):
+    raw = [float(r[0] or 0.0) for r in rows]
+
+    slow = moving_avg(raw, 18)
+    hp = highpass(raw, 10)
+
+    heart_like = []
+    brain_like = []
+    muscle_like = []
+    baseline_like = []
+
+    for i in range(len(raw)):
+        local = hp[max(0, i - 8): i + 1]
+
+        heart = band_energy(moving_avg(local, 4))
+        brain = band_energy(local)
+
+        muscle = abs(raw[i] - raw[i - 1]) * 1000 if i > 0 else 0.0
+        baseline = abs(slow[i]) * 100
+
+        heart_like.append(clamp(heart))
+        brain_like.append(clamp(brain))
+        muscle_like.append(clamp(muscle))
+        baseline_like.append(clamp(baseline))
+
+    return {
+        "heart_like": heart_like,
+        "brain_like": brain_like,
+        "muscle_like": muscle_like,
+        "baseline_like": baseline_like,
+    }
+
+
+def compute_derived_coherence(brain_series, heart_series):
+    out = []
+
+    for i in range(len(brain_series)):
+        b = brain_series[max(0, i - 8): i + 1]
+        h = heart_series[max(0, i - 8): i + 1]
+
+        if len(b) < 3 or pstdev(b) == 0 or pstdev(h) == 0:
+            out.append(0.0)
+            continue
+
+        mb, mh = mean(b), mean(h)
+        cov = sum((x - mb) * (y - mh) for x, y in zip(b, h)) / len(b)
+        corr = cov / (pstdev(b) * pstdev(h))
+
+        out.append(clamp((corr + 1) * 50))
+
+    return out
+
+
+def infer_zone_v2(brain, heart, muscle, temp, light, noise):
+    brain = clamp(brain)
+    heart = clamp(heart)
+    muscle = clamp(muscle)
+    noise = clamp(noise)
+    light = clamp(light)
+    temp = float(temp or 98.6)
+
+    if noise > 40 and noise > light:
+        return "Z5", "Z5 - Environmental Coupling", 0.55
+
+    if abs(98.6 - temp) > 1.2:
+        return "Z3", "Z3 - Thermal / Regulation Coupling", 0.55
+
+    if muscle > max(brain, heart) * 1.25 and muscle > 20:
+        return "Z4", "Z4 - Body / Muscle-Driven Activity", 0.62
+
+    if heart > brain * 1.2 and heart > 10:
+        return "Z2", "Z2 - Heart-Dominant Coupling", 0.62
+
+    if brain > heart * 1.2 and brain > 10:
+        return "Z1", "Z1 - Brain-Dominant Coupling", 0.62
+
+    return "Z6", "Z6 - Broad / Low-Variance Stability", 0.50
 # ✅ ADD THIS (RIGHT HERE)
 def zone_label(zid: str) -> str:
     return ZONE_DICT.get(zid, zid)
@@ -2750,18 +2866,33 @@ def detect_atomic_patterns_for_point(
 def build_live_points_and_events(rows):
     """
     rows = [(eeg, ecg, temp, light, noise, ts), ...]
-    Returns:
-      points: list of {t, harmony, drift, coherence, resonance, zone_id, zone_label, zone_conf}
-      events: list of {t, pattern_id, label, desc, zone_id, zone_label, zone_conf}
     """
+
     if not rows:
         return [], []
 
-    # series
+    # -----------------------------
+    # 1) Decomposition layer
+    # -----------------------------
+    decomp = decompose_rows(rows)
+
+    brain_s = decomp["brain_like"]
+    heart_s = decomp["heart_like"]
+    muscle_s = decomp["muscle_like"]
+    baseline_s = decomp["baseline_like"]
+
+    # -----------------------------
+    # 2) Core derived series
+    # -----------------------------
     drift_s = compute_drift_series(rows)
-    coh_s = compute_coherence_series(rows)
+    coh_s = compute_derived_coherence(brain_s, heart_s)
     res_s = compute_resonance_series(rows)
-    harm_s = [calc_harmony(r[0], r[1], r[2]) for r in rows]
+
+    # Use derived heart-like signal for harmony instead of dead ecg=0
+    harm_s = [
+        calc_harmony(brain_s[i], heart_s[i], rows[i][2])
+        for i in range(len(rows))
+    ]
 
     events = []
     points = []
@@ -2769,83 +2900,44 @@ def build_live_points_and_events(rows):
     prev_d = None
     prev_r = None
 
-    # Priority: show the most “important” tags first.
-    # Include derived tags near the top so they can surface.
+    pattern_first_seen = {}
+    emitted_recently = set()
+    PATTERN_MIN_DURATION = 5
+
     priority = [
-        # Derived (sentences)
-        "D2",
-        "D4",
-        "D9",
-        "D5",
-        "D1",
-        "D3",
-        "D6",
-        "D7",
-        "D8",
-        "D10",
-        # Drift / instability
-        "A4",
-        "A3",
-        "N2",
-        "N1",
-        # Coherence
-        "C4",
-        "C3",
-        "C2",
-        "C1",
-        # Resonance
-        "R3",
-        "R2",
-        "R4",
-        "R1",
-        # Bursts
-        "BB4",
-        "BB3",
-        "BB2",
-        "BB1",
-        # Thermal
-        "T2",
-        "T3",
-        "T1",
-        # Recovery
-        "H2",
-        "H1",
+        "D2", "D4", "D9", "D5", "D1", "D3", "D6", "D7", "D8", "D10",
+        "A4", "A3", "N2", "N1",
+        "C4", "C3", "C2", "C1",
+        "R3", "R2", "R4", "R1",
+        "BB4", "BB3", "BB2", "BB1",
+        "T2", "T3", "T1",
+        "H2", "H1",
     ]
 
-    # Faster lookup than priority.index() in a loop
     prio_rank = {pid: i for i, pid in enumerate(priority)}
 
     for i, (eeg, ecg, temp, light, noise, ts) in enumerate(rows):
-        # drift
-        try:
-            d = float(drift_s[i]) if i < len(drift_s) else 0.0
-        except Exception:
-            d = 0.0
-        d = max(0.0, min(100.0, d))
 
-        # coherence
-        try:
-            c = float(coh_s[i]) if i < len(coh_s) else 0.0
-        except Exception:
-            c = 0.0
-        c = max(0.0, min(100.0, c))
+        d = clamp(drift_s[i] if i < len(drift_s) else 0.0)
+        c = clamp(coh_s[i] if i < len(coh_s) else 0.0)
+        r = clamp(res_s[i] if i < len(res_s) else 0.0)
+        h = clamp(harm_s[i] if i < len(harm_s) else 0.0)
 
-        # resonance
-        try:
-            r = float(res_s[i]) if i < len(res_s) else 0.0
-        except Exception:
-            r = 0.0
-        r = max(0.0, min(100.0, r))
+        # New zone logic from decomposed signals
+        z_id, z_label, z_conf = infer_zone_v2(
+            brain_s[i],
+            heart_s[i],
+            muscle_s[i],
+            temp,
+            light,
+            noise,
+        )
 
-        # harmony
-        try:
-            h = float(harm_s[i]) if i < len(harm_s) else 0.0
-        except Exception:
-            h = 0.0
-        h = max(0.0, min(100.0, h))
+        hits = detect_atomic_patterns_for_point(
+            d, c, r, prev_drift=prev_d, prev_resonance=prev_r
+        )
 
-        # zone per-point (your existing infer_zone)
-        z_id, z_label, z_conf = infer_zone(eeg, ecg, temp, light, noise)
+        hits_sorted = sorted(hits, key=lambda x: prio_rank.get(x, 999))[:2]
 
         points.append(
             {
@@ -2854,23 +2946,44 @@ def build_live_points_and_events(rows):
                 "drift": round(d, 2),
                 "coherence": round(c, 2),
                 "resonance": round(r, 2),
+
+                # New decomposed fields
+                "brain_like": round(brain_s[i], 2),
+                "heart_like": round(heart_s[i], 2),
+                "muscle_like": round(muscle_s[i], 2),
+                "baseline_like": round(baseline_s[i], 2),
+
                 "zone_id": z_id,
                 "zone_label": z_label,
                 "zone_conf": round(float(z_conf), 2),
+                "patterns": hits_sorted,
             }
         )
 
-        # pattern tags for this point (atomic + derived heuristics)
-        hits = detect_atomic_patterns_for_point(
-            d, c, r, prev_drift=prev_d, prev_resonance=prev_r
-        )
-        prev_d, prev_r = d, r
-
-        # Keep top 1-2 per point to avoid spam
-        hits_sorted = sorted(hits, key=lambda x: prio_rank.get(x, 999))[:2]
+        now = datetime.utcnow()
 
         for pid in hits_sorted:
-            meta = pattern_meta(pid)  # ✅ unified resolver for atomic + derived
+            first_seen = pattern_first_seen.get(pid)
+
+            if first_seen is None:
+                pattern_first_seen[pid] = now
+                continue
+
+            elapsed = (now - first_seen).total_seconds()
+
+            if elapsed < PATTERN_MIN_DURATION:
+                continue
+
+            event_key = f"{pid}:{ts}"
+
+            if event_key in emitted_recently:
+                continue
+
+            emitted_recently.add(event_key)
+            pattern_first_seen.pop(pid, None)
+
+            meta = pattern_meta(pid)
+
             events.append(
                 {
                     "t": str(ts),
@@ -2883,9 +2996,17 @@ def build_live_points_and_events(rows):
                 }
             )
 
+        prev_d, prev_r = d, r
+
     return points, events
 
-
+@app.get("/debug/build_live_src")
+def debug_build_live_src():
+    import inspect, sys
+    m = sys.modules[__name__]
+    return {
+        "source": inspect.getsource(m.build_live_points_and_events).splitlines()
+    }
 # -------------------------------------------------
 # ---------- RESEARCH / PARTNER ENDPOINTS ----------
 # -------------------------------------------------
@@ -3289,9 +3410,13 @@ def api_board_snapshot(
 
         harmonies.append(calc_harmony(eeg, ecg, temp))
 
-        # Emotional / Autonomic signal
-        autonomic = abs(safe(eeg) - safe(ecg))
-        autonomic_vals.append(autonomic)
+        # Emotional / Autonomic signal (stress load model)
+        if eeg not in (None, 0) and ecg not in (None, 0):
+            autonomic = abs(eeg - ecg) * 0.7 + safe(noise) * 0.2 + safe(light) * 0.1
+    else:
+        autonomic = None
+
+    autonomic_vals.append(autonomic)
 
     # -------------------------------------------------
     # 4) Drift
@@ -4250,9 +4375,13 @@ def board(req: Request):
 
         harmonies.append(calc_harmony(eeg, ecg, temp))
 
-        # ⭐ Emotional / Autonomic signal
-        autonomic = abs(safe(eeg) - safe(ecg))
-        autonomic_vals.append(autonomic)
+       # Emotional / Autonomic signal (stress load model)
+        if eeg not in (None, 0) and ecg not in (None, 0):
+         autonomic = abs(eeg - ecg) * 0.7 + safe(noise) * 0.2 + safe(light) * 0.1
+    else:
+        autonomic = None
+
+    autonomic_vals.append(autonomic)
 
     # ---------- SAFETY: prevent empty arrays crashing charts ----------
     if not times_raw:
@@ -4333,17 +4462,19 @@ def board(req: Request):
 
     for eeg, ecg, temp, light, noise, ts in rows:
 
-        if ecg:
-            brain_coherence = round(eeg / ecg, 3) if eeg is not None and ecg != 0 else 0
-        else:
-            brain_coherence = 0
+    # Brain coherence
+        if eeg is not None and ecg not in (None, 0):
+            brain_coherence = round(eeg / ecg, 3)
+    else:
+        brain_coherence = None
 
-        if noise not in (None, 0):
-            signal_to_noise = round(light / noise, 3) if light is not None else 0
-        else:
-            signal_to_noise = 0
+    # Signal-to-noise
+    if light is not None and noise not in (None, 0):
+        signal_to_noise = round(light / noise, 3)
+    else:
+        signal_to_noise = None
 
-        ratio_rows.append((parse_iso_to_et(ts), brain_coherence, signal_to_noise))
+    ratio_rows.append((parse_iso_to_et(ts), brain_coherence, signal_to_noise))
 
     # ---------- Correlations ----------
     def safe_series(vals):
@@ -4618,8 +4749,9 @@ def board(req: Request):
 
     const times = data.points.map(p => p.t);
     const harmonies = data.points.map(p => p.harmony);
-    const eeg = data.points.map(p => p.eeg);
-    const ecg = data.points.map(p => p.ecg);
+    const drift = data.points.map(p => p.drift);
+    const coherence = data.points.map(p => p.coherence);
+    const resonance = data.points.map(p => p.resonance);
 
     if (!times.length) return;
 
@@ -4656,7 +4788,7 @@ def board(req: Request):
     const chart = window.brainFieldChart;
 
     const newTime = times[times.length - 1];
-    const newEEG = eeg[eeg.length - 1];
+    const newEEG = drift[drift.length - 1];
 
     chart.data.labels.push(newTime);
     chart.data.datasets[0].data.push(newEEG);
@@ -4675,7 +4807,7 @@ def board(req: Request):
     const chart = window.cardiacFieldChart;
 
     const newTime = times[times.length - 1];
-    const newECG = ecg[ecg.length - 1];
+    const newECG = resonance[resonance.length - 1];
 
     chart.data.labels.push(newTime);
     chart.data.datasets[0].data.push(newECG);
@@ -4717,12 +4849,16 @@ def board(req: Request):
 
     }
 
-    } catch (err) {
+     } catch (err) {
     console.log("Live session polling error:", err);
     }
 
     }
 
+    // run immediately on page load
+    pollLiveSession();
+
+    // then poll continuously
     setInterval(pollLiveSession, POLL_INTERVAL);
     """
 
